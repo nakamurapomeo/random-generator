@@ -1,0 +1,530 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+const INIT_DATA = {
+    cats: [
+        { id: 1, name: '項目1', items: ['サンプルA', 'サンプルB', 'サンプルC'], hidden: false },
+        { id: 2, name: '項目2', items: ['サンプルX', 'サンプルY', 'サンプルZ'], hidden: false }
+    ],
+    results: {},
+    locked: {},
+    history: [],
+    favs: [],
+    presets: [],
+    dark: true,
+    noRepeat: false,
+    showHidden: false
+};
+
+function useLocalStorage(key, init) {
+    const [val, setVal] = useState(() => {
+        try {
+            const item = localStorage.getItem(key);
+            return item ? { ...init, ...JSON.parse(item) } : init;
+        } catch { return init; }
+    });
+    useEffect(() => {
+        localStorage.setItem(key, JSON.stringify(val));
+    }, [key, val]);
+    return [val, setVal];
+}
+
+export default function App() {
+    const [store, setStore] = useLocalStorage('randgen4', INIT_DATA);
+    const [page, setPage] = useState('main');
+    const [modal, setModal] = useState(null);
+    const [spin, setSpin] = useState(false);
+    const [msg, setMsg] = useState('');
+    const [genCount, setGenCount] = useState(1);
+
+    const [tempName, setTempName] = useState('');
+    const [tempItems, setTempItems] = useState('');
+    const [tempPreset, setTempPreset] = useState('');
+    const [tempImport, setTempImport] = useState('');
+
+    const [dragId, setDragId] = useState(null);
+    const [dragOverId, setDragOverId] = useState(null);
+    const dragNode = useRef(null);
+
+    const toast = (t) => { setMsg(t); setTimeout(() => setMsg(''), 1500); };
+
+    const storageSize = () => {
+        const b = new Blob([JSON.stringify(store)]).size;
+        return b < 1024 ? b + ' B' : (b / 1024).toFixed(1) + ' KB';
+    };
+
+    const update = (fn) => setStore(prev => ({ ...prev, ...fn(prev) }));
+
+    const visibleCats = store.showHidden ? store.cats : store.cats.filter(c => !c.hidden);
+
+    const handleDragStart = (e, id) => {
+        setDragId(id);
+        dragNode.current = e.target;
+        e.target.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragEnd = (e) => {
+        e.target.style.opacity = '1';
+        if (dragId !== null && dragOverId !== null && dragId !== dragOverId) {
+            const cats = [...store.cats];
+            const fromIdx = cats.findIndex(c => c.id === dragId);
+            const toIdx = cats.findIndex(c => c.id === dragOverId);
+            const [moved] = cats.splice(fromIdx, 1);
+            cats.splice(toIdx, 0, moved);
+            update(() => ({ cats }));
+        }
+        setDragId(null);
+        setDragOverId(null);
+    };
+
+    const handleDragOver = (e, id) => {
+        e.preventDefault();
+        if (id !== dragOverId) setDragOverId(id);
+    };
+
+    const handleTouchStart = (id) => {
+        setDragId(id);
+    };
+
+    const handleTouchMove = (e, cats) => {
+        if (!dragId) return;
+        const touch = e.touches[0];
+        const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+        const cardEl = elements.find(el => el.dataset?.catid);
+        if (cardEl) {
+            const overId = Number(cardEl.dataset.catid);
+            if (overId !== dragOverId) setDragOverId(overId);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (dragId !== null && dragOverId !== null && dragId !== dragOverId) {
+            const cats = [...store.cats];
+            const fromIdx = cats.findIndex(c => c.id === dragId);
+            const toIdx = cats.findIndex(c => c.id === dragOverId);
+            const [moved] = cats.splice(fromIdx, 1);
+            cats.splice(toIdx, 0, moved);
+            update(() => ({ cats }));
+        }
+        setDragId(null);
+        setDragOverId(null);
+    };
+
+    const doGenerate = () => {
+        setSpin(true);
+        setTimeout(() => {
+            const allResults = [];
+            for (let g = 0; g < genCount; g++) {
+                const newRes = {};
+                visibleCats.forEach(c => {
+                    if (store.locked[c.id] && g === 0) {
+                        newRes[c.id] = store.results[c.id] || '';
+                    } else if (c.items.length > 0) {
+                        let pool = [...c.items];
+                        if (store.noRepeat && pool.length > 1) {
+                            const last = g === 0 ? store.results[c.id] : allResults[g - 1]?.res[c.id];
+                            if (last) pool = pool.filter(x => x !== last);
+                        }
+                        newRes[c.id] = pool[Math.floor(Math.random() * pool.length)];
+                    }
+                });
+                allResults.push({
+                    id: Date.now() + g,
+                    res: newRes,
+                    names: Object.fromEntries(store.cats.map(c => [c.id, c.name])),
+                    time: new Date().toLocaleString()
+                });
+            }
+            const latestRes = allResults[allResults.length - 1].res;
+            update(s => ({
+                results: latestRes,
+                history: [...allResults.reverse(), ...s.history].slice(0, 200)
+            }));
+            setSpin(false);
+            if (genCount > 1) toast(`${genCount}件生成しました`);
+        }, 400);
+    };
+
+    const openEditModal = (cat) => {
+        setTempName(cat.name);
+        setTempItems(cat.items.join('\n'));
+        setModal({ type: 'edit', id: cat.id, hidden: cat.hidden });
+    };
+
+    const saveEditModal = () => {
+        const id = modal.id;
+        const newName = tempName.trim() || '項目';
+        const newItems = tempItems.split('\n').map(s => s.trim()).filter(Boolean);
+        update(s => ({
+            cats: s.cats.map(c => c.id === id ? { ...c, name: newName, items: newItems } : c)
+        }));
+        setModal(null);
+        toast('保存しました');
+    };
+
+    const deleteCat = () => {
+        const id = modal.id;
+        update(s => ({
+            cats: s.cats.filter(c => c.id !== id),
+            locked: Object.fromEntries(Object.entries(s.locked).filter(([k]) => Number(k) !== id)),
+            results: Object.fromEntries(Object.entries(s.results).filter(([k]) => Number(k) !== id))
+        }));
+        setModal(null);
+        toast('削除しました');
+    };
+
+    const toggleHidden = () => {
+        const id = modal.id;
+        update(s => ({
+            cats: s.cats.map(c => c.id === id ? { ...c, hidden: !c.hidden } : c)
+        }));
+        setModal(m => ({ ...m, hidden: !m.hidden }));
+        toast(modal.hidden ? '表示しました' : '非表示にしました');
+    };
+
+    const dupCat = () => {
+        const cat = store.cats.find(c => c.id === modal.id);
+        if (!cat) return;
+        const newId = Math.max(...store.cats.map(c => c.id)) + 1;
+        update(s => ({ cats: [...s.cats, { id: newId, name: cat.name + '(複製)', items: [...cat.items], hidden: false }] }));
+        setModal(null);
+        toast('複製しました');
+    };
+
+    const addCat = () => {
+        const newId = store.cats.length > 0 ? Math.max(...store.cats.map(c => c.id)) + 1 : 1;
+        update(s => ({ cats: [...s.cats, { id: newId, name: `項目${newId}`, items: [], hidden: false }] }));
+    };
+
+    const toggleLock = (id) => {
+        update(s => ({ locked: { ...s.locked, [id]: !s.locked[id] } }));
+    };
+
+    const addFav = () => {
+        if (Object.keys(store.results).length === 0) return;
+        const entry = {
+            id: Date.now(),
+            res: { ...store.results },
+            names: Object.fromEntries(store.cats.map(c => [c.id, c.name])),
+            time: new Date().toLocaleString()
+        };
+        update(s => ({ favs: [entry, ...s.favs] }));
+        toast('お気に入りに追加');
+    };
+
+    const restoreRes = (res) => {
+        update(() => ({ results: res }));
+        setPage('main');
+        toast('復元しました');
+    };
+
+    const copyResult = () => {
+        const txt = visibleCats.map(c => `${c.name}: ${store.results[c.id] || '---'}`).join('\n');
+        navigator.clipboard.writeText(txt);
+        toast('結果をコピーしました');
+    };
+
+    const doExportText = () => {
+        const txt = store.cats.map(c => `[${c.name}]${c.hidden ? ' (非表示)' : ''}\n${c.items.join('\n')}`).join('\n\n');
+        navigator.clipboard.writeText(txt);
+        toast('コピーしました');
+    };
+
+    const doExportJSON = () => {
+        const blob = new Blob([JSON.stringify({ cats: store.cats, presets: store.presets }, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'randgen-backup.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('ダウンロード完了');
+    };
+
+    const doImport = () => {
+        const txt = tempImport.trim();
+        if (!txt) return;
+        try {
+            const json = JSON.parse(txt);
+            if (json.cats) {
+                update(() => ({ cats: json.cats.map(c => ({ ...c, hidden: c.hidden || false })), presets: json.presets || store.presets }));
+                setModal(null);
+                setTempImport('');
+                toast('インポート完了');
+                return;
+            }
+        } catch { }
+        const blocks = txt.split(/\n\n+/);
+        const newCats = blocks.map((block, idx) => {
+            const lines = block.split('\n').filter(l => l.trim());
+            if (lines.length === 0) return null;
+            const headerMatch = lines[0].match(/^\[(.+?)\](\s*\(非表示\))?$/);
+            const name = headerMatch ? headerMatch[1] : `項目${idx + 1}`;
+            const hidden = headerMatch ? !!headerMatch[2] : false;
+            const items = headerMatch ? lines.slice(1) : lines;
+            return { id: Date.now() + idx, name, items: items.filter(Boolean), hidden };
+        }).filter(Boolean);
+        if (newCats.length > 0) {
+            update(() => ({ cats: newCats }));
+            setModal(null);
+            setTempImport('');
+            toast('インポート完了');
+        }
+    };
+
+    const savePreset = () => {
+        if (!tempPreset.trim()) return;
+        update(s => ({
+            presets: [...s.presets, { id: Date.now(), name: tempPreset, cats: JSON.parse(JSON.stringify(s.cats)) }]
+        }));
+        setTempPreset('');
+        toast('プリセット保存');
+    };
+
+    const loadPreset = (p) => {
+        update(() => ({ cats: JSON.parse(JSON.stringify(p.cats)), results: {}, locked: {} }));
+        toast('読み込みました');
+    };
+
+    const delPreset = (id) => {
+        update(s => ({ presets: s.presets.filter(p => p.id !== id) }));
+    };
+
+    const clearAll = (type) => {
+        update(() => ({ [type]: [] }));
+        toast('削除しました');
+    };
+
+    const dark = store.dark;
+    const bg = dark ? 'min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 text-gray-100' : 'min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-gray-100 text-gray-900';
+    const cardCls = dark ? 'bg-slate-800/60 border border-slate-700/50 rounded-xl' : 'bg-white/80 border border-gray-200 rounded-xl shadow-sm';
+    const btnCls = dark ? 'bg-slate-700/80 hover:bg-slate-600/80 rounded-lg px-3 py-1.5 text-sm transition' : 'bg-gray-100 hover:bg-gray-200 rounded-lg px-3 py-1.5 text-sm transition';
+    const inputCls = dark ? 'w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500' : 'w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500';
+
+    const hiddenCount = store.cats.filter(c => c.hidden).length;
+    const displayCats = store.showHidden ? store.cats : visibleCats;
+
+    return (
+        <div className={bg + ' p-4'}>
+            {msg && <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-6 py-2 rounded-full shadow-lg z-50 text-sm">{msg}</div>}
+
+            <div className="max-w-lg mx-auto">
+                <div className="flex items-center justify-between mb-4">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">ランダムジェネレーター</h1>
+                    <button onClick={() => update(s => ({ dark: !s.dark }))} className={btnCls}>{dark ? '☀️' : '🌙'}</button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 justify-center mb-5">
+                    {[['main', '🎲メイン'], ['history', '📜履歴'], ['favs', '⭐お気に入り'], ['presets', '📁プリセット'], ['settings', '⚙️設定']].map(([k, label]) => (
+                        <button key={k} onClick={() => setPage(k)} className={`px-3 py-1.5 rounded-full text-sm transition ${page === k ? 'bg-purple-600 text-white' : btnCls}`}>{label}</button>
+                    ))}
+                </div>
+
+                {page === 'main' && (
+                    <>
+                        {hiddenCount > 0 && (
+                            <div className="flex justify-end mb-2">
+                                <button onClick={() => update(s => ({ showHidden: !s.showHidden }))} className={`text-xs ${btnCls}`}>
+                                    {store.showHidden ? '🙈 非表示を隠す' : `👁 非表示を表示 (${hiddenCount})`}
+                                </button>
+                            </div>
+                        )}
+                        <div className="space-y-3 mb-5">
+                            {displayCats.map((cat) => (
+                                <div
+                                    key={cat.id}
+                                    data-catid={cat.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, cat.id)}
+                                    onDragEnd={handleDragEnd}
+                                    onDragOver={(e) => handleDragOver(e, cat.id)}
+                                    onTouchStart={() => handleTouchStart(cat.id)}
+                                    onTouchMove={(e) => handleTouchMove(e, displayCats)}
+                                    onTouchEnd={handleTouchEnd}
+                                    className={`${cardCls} p-3 ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} cursor-grab active:cursor-grabbing`}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 cursor-grab">⠿</span>
+                                            <span className="font-medium text-purple-400">{cat.name}</span>
+                                            {cat.hidden && <span className="text-xs text-gray-500">(非表示)</span>}
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => toggleLock(cat.id)} className={`p-1.5 rounded-lg text-sm ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
+                                            <button onClick={() => openEditModal(cat)} className={btnCls + ' text-gray-400'}>✏️</button>
+                                        </div>
+                                    </div>
+                                    <div className={`min-h-[44px] flex items-center justify-center rounded-lg px-3 py-2 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''}`}>
+                                        {store.results[cat.id] || <span className="text-gray-500">---</span>}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">{cat.items.length}件の候補</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 justify-center items-center mb-4">
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => setGenCount(Math.max(1, genCount - 1))} className={btnCls}>−</button>
+                                <span className="w-8 text-center">{genCount}</span>
+                                <button onClick={() => setGenCount(Math.min(10, genCount + 1))} className={btnCls}>＋</button>
+                            </div>
+                            <button onClick={doGenerate} disabled={spin} className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow-lg hover:scale-105 transition disabled:opacity-50">{spin ? '...' : '🎲 生成'}</button>
+                            <button onClick={addFav} className={btnCls}>⭐</button>
+                            <button onClick={copyResult} className={btnCls}>📋</button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            <button onClick={addCat} className={btnCls}>＋項目追加</button>
+                            <button onClick={doExportText} className={btnCls}>📤コピー</button>
+                            <button onClick={doExportJSON} className={btnCls}>💾JSON</button>
+                            <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={btnCls}>📥インポート</button>
+                        </div>
+                    </>
+                )}
+
+                {page === 'history' && (
+                    <div className="space-y-2">
+                        {store.history.length > 0 && (
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm text-gray-500">{store.history.length}件</span>
+                                <button onClick={() => clearAll('history')} className="text-sm text-red-400">全削除</button>
+                            </div>
+                        )}
+                        {store.history.length === 0 && <p className="text-center text-gray-500 py-8">履歴なし</p>}
+                        {store.history.map(h => (
+                            <div key={h.id} className={cardCls + ' p-3'}>
+                                <div className="text-xs text-gray-500 mb-1">{h.time}</div>
+                                {Object.entries(h.res).map(([id, val]) => val && <div key={id} className="text-sm"><span className="text-purple-400">{h.names[id]}:</span> {val}</div>)}
+                                <button onClick={() => restoreRes(h.res)} className="text-xs text-purple-400 mt-2">↩️復元</button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {page === 'favs' && (
+                    <div className="space-y-2">
+                        {store.favs.length > 0 && (
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm text-gray-500">{store.favs.length}件</span>
+                                <button onClick={() => clearAll('favs')} className="text-sm text-red-400">全削除</button>
+                            </div>
+                        )}
+                        {store.favs.length === 0 && <p className="text-center text-gray-500 py-8">お気に入りなし</p>}
+                        {store.favs.map(f => (
+                            <div key={f.id} className={cardCls + ' p-3'}>
+                                <div className="text-xs text-gray-500 mb-1">{f.time}</div>
+                                {Object.entries(f.res).map(([id, val]) => val && <div key={id} className="text-sm"><span className="text-purple-400">{f.names[id]}:</span> {val}</div>)}
+                                <div className="flex gap-3 mt-2">
+                                    <button onClick={() => restoreRes(f.res)} className="text-xs text-purple-400">↩️復元</button>
+                                    <button onClick={() => update(s => ({ favs: s.favs.filter(x => x.id !== f.id) }))} className="text-xs text-red-400">🗑️削除</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {page === 'presets' && (
+                    <div className="space-y-3">
+                        <div className="flex gap-2">
+                            <input type="text" value={tempPreset} onChange={e => setTempPreset(e.target.value)} placeholder="プリセット名" className={inputCls} />
+                            <button onClick={savePreset} className="px-4 py-2 bg-purple-600 text-white rounded-lg shrink-0">保存</button>
+                        </div>
+                        {store.presets.length === 0 && <p className="text-center text-gray-500 py-8">プリセットなし</p>}
+                        {store.presets.map(p => (
+                            <div key={p.id} className={cardCls + ' p-3 flex justify-between items-center'}>
+                                <div>
+                                    <div className="font-medium">{p.name}</div>
+                                    <div className="text-xs text-gray-500">{p.cats.length}項目</div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => loadPreset(p)} className="px-3 py-1 bg-purple-600/60 text-white rounded text-sm">読込</button>
+                                    <button onClick={() => delPreset(p.id)} className="text-red-400 text-sm">🗑️</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {page === 'settings' && (
+                    <div className="space-y-3">
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">オプション</h3>
+                            <div className="flex items-center justify-between mb-3">
+                                <span>連続重複を防ぐ</span>
+                                <button onClick={() => update(s => ({ noRepeat: !s.noRepeat }))} className={`w-12 h-6 rounded-full transition ${store.noRepeat ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.noRepeat ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span>ダークモード</span>
+                                <button onClick={() => update(s => ({ dark: !s.dark }))} className={`w-12 h-6 rounded-full transition ${dark ? 'bg-purple-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">データ</h3>
+                            <button onClick={doExportJSON} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>💾 JSONバックアップ</button>
+                            <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>📥 インポート</button>
+                            <button onClick={() => { setStore(INIT_DATA); toast('リセット完了'); }} className={`w-full text-left p-2 rounded-lg text-red-400 ${btnCls}`}>🗑️ 全データリセット</button>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-2">統計</h3>
+                            <div className="text-sm text-gray-500 space-y-1">
+                                <div>項目数: {store.cats.length} ({hiddenCount}件非表示)</div>
+                                <div>総候補数: {store.cats.reduce((a, c) => a + c.items.length, 0)}</div>
+                                <div>履歴: {store.history.length}件</div>
+                                <div>お気に入り: {store.favs.length}件</div>
+                                <div>プリセット: {store.presets.length}件</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {modal?.type === 'edit' && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold mb-4">項目を編集</h3>
+                            <div className="mb-3">
+                                <label className="block text-sm text-gray-500 mb-1">項目名</label>
+                                <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls} />
+                            </div>
+                            <div className="mb-3">
+                                <label className="block text-sm text-gray-500 mb-1">候補（1行に1つ）</label>
+                                <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={8} className={inputCls + ' resize-none font-mono text-sm'} spellCheck={false} />
+                                <div className="text-xs text-gray-500 mt-1">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                <button onClick={toggleHidden} className={btnCls}>{modal.hidden ? '👁 表示する' : '🙈 非表示'}</button>
+                                <button onClick={dupCat} className={btnCls}>📋 複製</button>
+                                <button onClick={deleteCat} className={`${btnCls} text-red-400`}>🗑️ 削除</button>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
+                                <button onClick={saveEditModal} className="px-4 py-2 bg-purple-600 text-white rounded-lg">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {modal?.type === 'import' && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl`} onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold mb-4">インポート</h3>
+                            <p className="text-sm text-gray-500 mb-2">テキスト形式またはJSON</p>
+                            <textarea value={tempImport} onChange={e => setTempImport(e.target.value)} rows={8} placeholder={"[項目1]\n候補A\n候補B\n\n[項目2]\n候補X\n候補Y"} className={inputCls + ' resize-none font-mono text-sm mb-3'} spellCheck={false} />
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
+                                <button onClick={doImport} className="px-4 py-2 bg-purple-600 text-white rounded-lg">インポート</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="text-center text-xs text-gray-500 mt-6">ストレージ: {storageSize()}</div>
+            </div>
+        </div>
+    );
+}
