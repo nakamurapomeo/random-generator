@@ -43,6 +43,7 @@ export default function App() {
 
     const [dragId, setDragId] = useState(null);
     const [dragOverId, setDragOverId] = useState(null);
+    const [selectModal, setSelectModal] = useState(null);
     const dragNode = useRef(null);
 
     const toast = (t) => { setMsg(t); setTimeout(() => setMsg(''), 1500); };
@@ -356,7 +357,11 @@ export default function App() {
                                             <button onClick={() => openEditModal(cat)} className={btnCls + ' text-gray-400'}>✏️</button>
                                         </div>
                                     </div>
-                                    <div className={`min-h-[44px] flex items-center justify-center rounded-lg px-3 py-2 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''}`}>
+                                    <div
+                                        onClick={() => cat.items.length > 0 && setSelectModal({ cat })}
+                                        className={`min-h-[44px] flex items-center justify-center rounded-lg px-3 py-2 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''}`}
+                                        title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
+                                    >
                                         {store.results[cat.id] || <span className="text-gray-500">---</span>}
                                     </div>
                                     <div className="text-xs text-gray-500 mt-1">{cat.items.length}件の候補</div>
@@ -518,6 +523,52 @@ export default function App() {
                             <div className="flex justify-end gap-2">
                                 <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
                                 <button onClick={doImport} className="px-4 py-2 bg-purple-600 text-white rounded-lg">インポート</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {selectModal && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectModal(null)}>
+                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col`} onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold mb-2">「{selectModal.cat.name}」の候補を選択</h3>
+                            <p className="text-sm text-gray-500 mb-3">選択すると固定されます。他の項目は「生成」でランダムに。</p>
+                            <div className="overflow-y-auto flex-1 space-y-1">
+                                {selectModal.cat.items.map((item, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            update(s => ({
+                                                results: { ...s.results, [selectModal.cat.id]: item },
+                                                locked: { ...s.locked, [selectModal.cat.id]: true }
+                                            }));
+                                            setSelectModal(null);
+                                            toast(`「${item}」を選択・固定しました`);
+                                        }}
+                                        className={`w-full text-left px-4 py-3 rounded-lg transition ${store.results[selectModal.cat.id] === item
+                                                ? 'bg-purple-600 text-white'
+                                                : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        {item}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex justify-between mt-4 pt-3 border-t border-gray-600">
+                                <button
+                                    onClick={() => {
+                                        update(s => ({
+                                            results: { ...s.results, [selectModal.cat.id]: '' },
+                                            locked: { ...s.locked, [selectModal.cat.id]: false }
+                                        }));
+                                        setSelectModal(null);
+                                        toast('選択を解除しました');
+                                    }}
+                                    className={`text-sm ${btnCls} text-red-400`}
+                                >
+                                    🔓 選択解除
+                                </button>
+                                <button onClick={() => setSelectModal(null)} className={btnCls}>閉じる</button>
                             </div>
                         </div>
                     </div>
