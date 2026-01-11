@@ -996,17 +996,16 @@ export default function RandomGenerator({ onSwitchApp }) {
                                                 if (imageStyle === 'original') {
                                                     imgStyle = { width: '100%', height: 'auto', maxHeight: '400px', objectFit: 'contain' };
                                                 } else if (imageStyle === 'square-contain') {
-                                                    imgStyle = { width: '100%', height: 'auto', aspectRatio: '1/1', objectFit: 'contain', backgroundColor: dark ? '#00000040' : '#f3f4f6' };
+                                                    imgStyle = { width: '100%', height: 'auto', aspectRatio: '1/1', objectFit: 'fill' };
                                                 } else { // contain, cover (fixed height 200px equivalent) or fallback
                                                     imgStyle = { width: '100%', height: '200px', objectFit: imageStyle, maxHeight: '400px' };
                                                 }
                                             } else {
-                                                // Normal mode - square with full image (contain, not crop)
+                                                // Normal mode - stretch image to fill square
                                                 imgStyle = {
                                                     width: customSize,
                                                     height: customSize,
-                                                    objectFit: 'contain',
-                                                    backgroundColor: dark ? '#00000040' : '#f3f4f6'
+                                                    objectFit: 'fill'
                                                 };
                                             }
 
