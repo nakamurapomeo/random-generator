@@ -2,8 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const INIT_DATA = {
     cats: [
-        { id: 1, name: '項目1', items: ['サンプルA', 'サンプルB', 'サンプルC'], hidden: false, weights: {}, emoji: '🎲', color: '#a855f7' },
-        { id: 2, name: '項目2', items: ['サンプルX', 'サンプルY', 'サンプルZ'], hidden: false, weights: {}, emoji: '🎯', color: '#ec4899' }
+        {
+            id: 1, name: '項目1', items: [
+                { name: 'サンプルA', subItems: [], hasSubItems: false },
+                { name: 'サンプルB', subItems: [], hasSubItems: false },
+                { name: 'サンプルC', subItems: [], hasSubItems: false }
+            ], hidden: false, weights: {}, emoji: '🎲', color: '#a855f7'
+        },
+        {
+            id: 2, name: '項目2', items: [
+                { name: 'サンプルX', subItems: [], hasSubItems: false },
+                { name: 'サンプルY', subItems: [], hasSubItems: false },
+                { name: 'サンプルZ', subItems: [], hasSubItems: false }
+            ], hidden: false, weights: {}, emoji: '🎯', color: '#ec4899'
+        }
     ],
     results: {},
     locked: {},
@@ -25,16 +37,41 @@ const INIT_DATA = {
     showHiddenControl: true, // Default to true so restored weights are visible
 };
 
-// Helper function for weighted random selection
+// Normalize item to new format (migrate from string to object)
+const normalizeItem = (item) => {
+    if (typeof item === 'string') {
+        return { name: item, subItems: [], hasSubItems: false };
+    }
+    return {
+        name: item.name || '',
+        subItems: item.subItems || [],
+        hasSubItems: item.hasSubItems ?? false
+    };
+};
+
+// Get item name (works with both old string format and new object format)
+const getItemName = (item) => typeof item === 'string' ? item : item.name;
+
+// Migrate cat items to new format
+const migrateCatItems = (cat) => {
+    if (!cat.items) return { ...cat, items: [] };
+    return {
+        ...cat,
+        items: cat.items.map(normalizeItem)
+    };
+};
+
+// Helper function for weighted random selection (updated for new format)
 const weightedRandom = (items, weights) => {
     const pool = [];
     items.forEach(item => {
-        const w = weights[item] ?? 1;
+        const itemName = getItemName(item);
+        const w = weights[itemName] ?? 1;
         if (w > 0) {
             for (let i = 0; i < w; i++) pool.push(item);
         }
     });
-    if (pool.length === 0) return items[0] || '';
+    if (pool.length === 0) return items[0] || null;
     return pool[Math.floor(Math.random() * pool.length)];
 };
 
@@ -42,7 +79,22 @@ function useLocalStorage(key, init) {
     const [val, setVal] = useState(() => {
         try {
             const item = localStorage.getItem(key);
-            return item ? { ...init, ...JSON.parse(item) } : init;
+            if (item) {
+                const parsed = { ...init, ...JSON.parse(item) };
+                // Migrate cat items to new format
+                if (parsed.cats) {
+                    parsed.cats = parsed.cats.map(migrateCatItems);
+                }
+                // Migrate preset cats as well
+                if (parsed.presets) {
+                    parsed.presets = parsed.presets.map(preset => ({
+                        ...preset,
+                        cats: preset.cats ? preset.cats.map(migrateCatItems) : []
+                    }));
+                }
+                return parsed;
+            }
+            return init;
         } catch { return init; }
     });
     useEffect(() => {
@@ -73,6 +125,7 @@ export default function App() {
     const [dragOverId, setDragOverId] = useState(null);
     const [selectModal, setSelectModal] = useState(null);
     const [itemMenu, setItemMenu] = useState(null);
+    const [expandedItems, setExpandedItems] = useState({});
     const dragNode = useRef(null);
     const longPressTimer = useRef(null);
     const isLongPress = useRef(false);
@@ -156,16 +209,35 @@ export default function App() {
                         newRes[c.id] = store.results[c.id] || '';
                     } else if (c.items.length > 0) {
                         const weights = c.weights || {};
-                        let pool = c.items.filter(item => (weights[item] ?? 1) > 0);
+                        let pool = c.items.filter(item => {
+                            const itemName = getItemName(item);
+                            return (weights[itemName] ?? 1) > 0;
+                        });
                         if (pool.length === 0) {
                             newRes[c.id] = '';
                             return;
                         }
                         if (store.noRepeat && pool.length > 1) {
                             const last = g === 0 ? store.results[c.id] : allResults[g - 1]?.res[c.id];
-                            if (last) pool = pool.filter(x => x !== last);
+                            if (last) {
+                                // Extract main item name for comparison
+                                const lastMainName = last.split(' → ')[0];
+                                pool = pool.filter(item => getItemName(item) !== lastMainName);
+                            }
                         }
-                        newRes[c.id] = weightedRandom(pool, weights);
+                        const selectedItem = weightedRandom(pool, weights);
+                        if (!selectedItem) {
+                            newRes[c.id] = '';
+                            return;
+                        }
+
+                        // Check if selected item has sub-items enabled
+                        if (selectedItem.hasSubItems && selectedItem.subItems && selectedItem.subItems.length > 0) {
+                            const subItem = selectedItem.subItems[Math.floor(Math.random() * selectedItem.subItems.length)];
+                            newRes[c.id] = `${selectedItem.name} → ${subItem}`;
+                        } else {
+                            newRes[c.id] = selectedItem.name;
+                        }
                     }
                 });
                 allResults.push({
@@ -198,7 +270,8 @@ export default function App() {
 
     const openEditModal = (cat) => {
         setTempName(cat.name);
-        setTempItems(cat.items.join('\n'));
+        // Extract item names for textarea editing
+        setTempItems(cat.items.map(item => getItemName(item)).join('\n'));
         setTempEmoji(cat.emoji || '🎲');
         setTempColor(cat.color || '#a855f7');
         setModal({ type: 'edit', id: cat.id, hidden: cat.hidden });
@@ -207,10 +280,32 @@ export default function App() {
     const saveEditModal = () => {
         const id = modal.id;
         const newName = tempName.trim() || '項目';
-        const newItems = tempItems.split('\n').map(s => s.trim()).filter(Boolean);
-        update(s => ({
-            cats: s.cats.map(c => c.id === id ? { ...c, name: newName, items: newItems, emoji: tempEmoji, color: tempColor } : c)
-        }));
+        const newItemNames = tempItems.split('\n').map(s => s.trim()).filter(Boolean);
+
+        // Preserve existing subItems for items that still exist
+        update(s => {
+            const oldCat = s.cats.find(c => c.id === id);
+            const oldItemsMap = {};
+            if (oldCat && oldCat.items) {
+                oldCat.items.forEach(item => {
+                    const name = getItemName(item);
+                    oldItemsMap[name] = item;
+                });
+            }
+
+            const newItems = newItemNames.map(name => {
+                // If item existed before, preserve its subItems and hasSubItems
+                if (oldItemsMap[name]) {
+                    return { ...oldItemsMap[name], name };
+                }
+                // New item
+                return { name, subItems: [], hasSubItems: false };
+            });
+
+            return {
+                cats: s.cats.map(c => c.id === id ? { ...c, name: newName, items: newItems, emoji: tempEmoji, color: tempColor } : c)
+            };
+        });
         setModal(null);
         toast('保存しました');
     };
@@ -280,7 +375,10 @@ export default function App() {
     };
 
     const doExportText = () => {
-        const txt = store.cats.map(c => `[${c.name}]${c.hidden ? ' (非表示)' : ''}\n${c.items.join('\n')}`).join('\n\n');
+        const txt = store.cats.map(c => {
+            const itemNames = c.items.map(item => getItemName(item));
+            return `[${c.name}]${c.hidden ? ' (非表示)' : ''}\n${itemNames.join('\n')}`;
+        }).join('\n\n');
         navigator.clipboard.writeText(txt);
         toast('コピーしました');
     };
@@ -326,7 +424,9 @@ export default function App() {
         try {
             const json = JSON.parse(txt);
             if (json.cats) {
-                update(() => ({ cats: json.cats.map(c => ({ ...c, hidden: c.hidden || false })), presets: json.presets || store.presets }));
+                // Apply migration to imported cats
+                const migratedCats = json.cats.map(c => migrateCatItems({ ...c, hidden: c.hidden || false }));
+                update(() => ({ cats: migratedCats, presets: json.presets || store.presets }));
                 setModal(null);
                 setTempImport('');
                 toast('インポート完了');
@@ -340,8 +440,14 @@ export default function App() {
             const headerMatch = lines[0].match(/^\[(.+?)\](\s*\(非表示\))?$/);
             const name = headerMatch ? headerMatch[1] : `項目${idx + 1}`;
             const hidden = headerMatch ? !!headerMatch[2] : false;
-            const items = headerMatch ? lines.slice(1) : lines;
-            return { id: Date.now() + idx, name, items: items.filter(Boolean), hidden };
+            const itemNames = headerMatch ? lines.slice(1) : lines;
+            // Convert item names to new object format
+            const items = itemNames.filter(Boolean).map(itemName => ({
+                name: itemName.trim(),
+                subItems: [],
+                hasSubItems: false
+            }));
+            return { id: Date.now() + idx, name, items, hidden, weights: {}, emoji: '🎲', color: '#a855f7' };
         }).filter(Boolean);
         if (newCats.length > 0) {
             update(() => ({ cats: newCats }));
@@ -819,183 +925,216 @@ export default function App() {
                     const cat = store.cats.find(c => c.id === selectModal.cat.id) || selectModal.cat;
                     const weights = cat.weights || {};
 
-                    const updateWeight = (item, delta) => {
-                        const currentWeight = weights[item] ?? 1;
+                    const updateWeight = (itemName, delta) => {
+                        const currentWeight = weights[itemName] ?? 1;
                         const newWeight = Math.max(0, Math.min(5, currentWeight + delta));
                         update(s => ({
                             cats: s.cats.map(c => c.id === cat.id
-                                ? { ...c, weights: { ...c.weights, [item]: newWeight } }
+                                ? { ...c, weights: { ...c.weights, [itemName]: newWeight } }
                                 : c
                             )
                         }));
                     };
 
-                    const handleTouchStartItem = (e, item, idx) => {
-                        isLongPress.current = false;
-                        const touch = e.touches[0];
-                        touchStartPos.current = { x: touch.clientX, y: touch.clientY, item, idx };
-
-                        // Check weight for current item
-                        const w = weights[item] ?? 1;
-                        const isDisabled = w === 0;
-
-                        longPressTimer.current = setTimeout(() => {
-                            isLongPress.current = true;
-                            // Long Press Action: Lock/Select
-                            if (!isDisabled) {
-                                update(s => ({
-                                    results: { ...s.results, [cat.id]: item },
-                                    locked: { ...s.locked, [cat.id]: true }
-                                }));
-                                setSelectModal(null);
-                                toast(`「${item}」を選択・固定しました`);
-                            }
-                        }, 500);
-                    };
-
-                    const handleTouchMoveItem = (e) => {
-                        if (touchStartPos.current) {
-                            const moveX = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
-                            const moveY = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
-                            if (moveX > 10 || moveY > 10) {
-                                if (longPressTimer.current) {
-                                    clearTimeout(longPressTimer.current);
-                                    longPressTimer.current = null;
-                                }
-                            }
-                        }
-                    };
-
-                    const handleTouchEndItem = (e) => {
-                        if (longPressTimer.current) {
-                            clearTimeout(longPressTimer.current);
-                            longPressTimer.current = null;
-                        }
-
-                        // If it was a long press, don't trigger tap action
-                        if (isLongPress.current) {
-                            isLongPress.current = false;
-                            touchStartPos.current = null;
-                            return;
-                        }
-
-                        // Short tap - show menu
-                        if (touchStartPos.current) {
-                            const { x, y, item, idx } = touchStartPos.current;
-                            setItemMenu({ item, idx, x, y });
-                            touchStartPos.current = null;
-                            e.preventDefault(); // Prevent subsequent click
-                        }
-                    };
-
-                    const handleContextMenu = (e, item, idx) => {
-                        e.preventDefault();
-                        // Right click always shows menu
-                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
-                    };
-
-                    const handleClickItem = (e, item, idx) => {
-                        // Only for mouse/desktop - touch is handled by touchEnd
-                        if (e.clientX === 0 && e.clientY === 0) return; // Touch event, ignore
-                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
-                    };
-
-                    const deleteItem = (itemToDelete) => {
-                        if (!confirm(`「${itemToDelete}」を削除しますか？`)) return;
+                    const toggleSubItems = (idx) => {
                         update(s => ({
-                            cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter(i => i !== itemToDelete) } : c)
+                            cats: s.cats.map(c => c.id === cat.id
+                                ? {
+                                    ...c, items: c.items.map((item, i) => i === idx
+                                        ? { ...item, hasSubItems: !item.hasSubItems }
+                                        : item)
+                                }
+                                : c
+                            )
                         }));
-                        setItemMenu(null);
                     };
 
-                    const editItem = (oldItem, idx) => {
-                        const newItem = prompt('名称を編集:', oldItem);
-                        if (newItem && newItem.trim() !== '' && newItem !== oldItem) {
-                            update(s => ({
-                                cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((i, iIdx) => iIdx === idx ? newItem : i) } : c)
-                            }));
-                        }
-                        setItemMenu(null);
+                    const addSubItem = (idx, subItemName) => {
+                        if (!subItemName.trim()) return;
+                        update(s => ({
+                            cats: s.cats.map(c => c.id === cat.id
+                                ? {
+                                    ...c, items: c.items.map((item, i) => i === idx
+                                        ? { ...item, subItems: [...(item.subItems || []), subItemName.trim()] }
+                                        : item)
+                                }
+                                : c
+                            )
+                        }));
                     };
 
-                    const copyItem = (text) => {
-                        navigator.clipboard.writeText(text);
-                        toast('コピーしました');
-                        setItemMenu(null);
+                    const removeSubItem = (itemIdx, subItemIdx) => {
+                        update(s => ({
+                            cats: s.cats.map(c => c.id === cat.id
+                                ? {
+                                    ...c, items: c.items.map((item, i) => i === itemIdx
+                                        ? { ...item, subItems: item.subItems.filter((_, si) => si !== subItemIdx) }
+                                        : item)
+                                }
+                                : c
+                            )
+                        }));
+                    };
+
+                    const updateSubItem = (itemIdx, subItemIdx, newValue) => {
+                        update(s => ({
+                            cats: s.cats.map(c => c.id === cat.id
+                                ? {
+                                    ...c, items: c.items.map((item, i) => i === itemIdx
+                                        ? { ...item, subItems: item.subItems.map((sub, si) => si === subItemIdx ? newValue : sub) }
+                                        : item)
+                                }
+                                : c
+                            )
+                        }));
                     };
 
                     return (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                             <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`}>
                                 <h3 className="text-lg font-bold mb-2">「{cat.name}」の編集</h3>
-                                <p className="text-sm text-gray-500 mb-3">候補の内容を直接編集できます</p>
+                                <p className="text-sm text-gray-500 mb-3">候補の編集・サブ項目の追加ができます</p>
                                 <div className="overflow-y-auto flex-1 space-y-2">
                                     {cat.items.map((item, idx) => {
-                                        const w = weights[item] ?? 1;
-                                        const isLocked = store.results[cat.id] === item;
+                                        const itemName = getItemName(item);
+                                        const w = weights[itemName] ?? 1;
+                                        const currentResult = store.results[cat.id] || '';
+                                        const isLocked = currentResult.startsWith(itemName);
+                                        const isExpanded = expandedItems[idx];
+                                        const hasSubItemsEnabled = item.hasSubItems;
+                                        const subItems = item.subItems || [];
+
                                         return (
-                                            <div key={idx} className={`flex items-center gap-2 rounded-lg p-2 ${isLocked ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''}`}>
-                                                <div className="flex flex-col flex-1 min-w-0">
-                                                    <textarea
-                                                        value={item}
-                                                        rows={Math.max(1, Math.ceil(item.length / 20))}
-                                                        onChange={(e) => {
-                                                            const newItem = e.target.value;
-                                                            update(s => ({
-                                                                cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((old, i) => i === idx ? newItem : old) } : c)
-                                                            }));
-                                                        }}
-                                                        className={`bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition w-full text-xs resize-none ${dark ? 'border-gray-600' : ''}`}
-                                                    />
-                                                    {store.showWeightIndicator && (
-                                                        <div className="flex items-center gap-1 mt-1">
-                                                            <span className="text-xs text-gray-500">重み:</span>
-                                                            <button onClick={() => updateWeight(item, -1)} className="px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 transform active:scale-95 transition">-</button>
-                                                            <span className={`text-xs font-bold w-4 text-center ${w === 0 ? 'text-red-400' : ''}`}>{w}</span>
-                                                            <button onClick={() => updateWeight(item, 1)} className="px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 transform active:scale-95 transition">+</button>
+                                            <div key={idx} className={`rounded-lg p-2 ${isLocked ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''} ${dark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex flex-col flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                type="text"
+                                                                value={itemName}
+                                                                onChange={(e) => {
+                                                                    const newName = e.target.value;
+                                                                    update(s => ({
+                                                                        cats: s.cats.map(c => c.id === cat.id
+                                                                            ? { ...c, items: c.items.map((old, i) => i === idx ? { ...old, name: newName } : old) }
+                                                                            : c
+                                                                        )
+                                                                    }));
+                                                                }}
+                                                                className={`bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition flex-1 text-sm ${dark ? 'border-gray-600' : ''}`}
+                                                            />
+                                                            {subItems.length > 0 && (
+                                                                <span className="text-xs text-gray-500">({subItems.length})</span>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex shrink-0">
-                                                    <button
-                                                        onClick={() => {
-                                                            update(s => ({
-                                                                cats: s.cats.map(c => c.id === cat.id
-                                                                    ? { ...c, items: [...c.items.slice(0, idx + 1), item, ...c.items.slice(idx + 1)] }
-                                                                    : c)
-                                                            }));
-                                                        }}
-                                                        className="p-1 text-gray-400 hover:text-blue-400 rounded text-xs"
-                                                        title="複製"
-                                                    >
-                                                        📄
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            update(s => ({
-                                                                results: { ...s.results, [cat.id]: item },
-                                                                locked: { ...s.locked, [cat.id]: true }
-                                                            }));
-                                                        }}
-                                                        className={`p-1 rounded text-xs ${isLocked ? 'text-purple-500' : 'text-gray-400 hover:text-purple-500'}`}
-                                                        title="この候補で固定"
-                                                    >
-                                                        {isLocked ? '🔒' : '🔓'}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            if (confirm('削除しますか？')) {
+                                                        {store.showWeightIndicator && (
+                                                            <div className="flex items-center gap-1 mt-1">
+                                                                <span className="text-xs text-gray-500">重み:</span>
+                                                                <button onClick={() => updateWeight(itemName, -1)} className={`px-2 py-0.5 text-xs rounded ${dark ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}>-</button>
+                                                                <span className={`text-xs font-bold w-4 text-center ${w === 0 ? 'text-red-400' : ''}`}>{w}</span>
+                                                                <button onClick={() => updateWeight(itemName, 1)} className={`px-2 py-0.5 text-xs rounded ${dark ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}>+</button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex shrink-0 gap-1">
+                                                        <button
+                                                            onClick={() => setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                                                            className={`p-1 rounded text-xs ${isExpanded ? 'bg-purple-500/30 text-purple-400' : 'text-gray-400'}`}
+                                                            title="サブ項目"
+                                                        >
+                                                            {isExpanded ? '▼' : '▶'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => toggleSubItems(idx)}
+                                                            className={`p-1 rounded text-xs ${hasSubItemsEnabled ? 'bg-green-500/30 text-green-400' : 'text-gray-400'}`}
+                                                            title={hasSubItemsEnabled ? 'サブ項目オン' : 'サブ項目オフ'}
+                                                        >
+                                                            {hasSubItemsEnabled ? '✓' : '○'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
                                                                 update(s => ({
-                                                                    cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter((_, i) => i !== idx) } : c)
+                                                                    results: { ...s.results, [cat.id]: itemName },
+                                                                    locked: { ...s.locked, [cat.id]: true }
                                                                 }));
-                                                            }
-                                                        }}
-                                                        className="p-1 text-red-400 rounded text-xs"
-                                                        title="削除"
-                                                    >
-                                                        🗑️
-                                                    </button>
+                                                            }}
+                                                            className={`p-1 rounded text-xs ${isLocked ? 'text-purple-500' : 'text-gray-400'}`}
+                                                            title="固定"
+                                                        >
+                                                            {isLocked ? '🔒' : '🔓'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('削除しますか？')) {
+                                                                    update(s => ({
+                                                                        cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter((_, i) => i !== idx) } : c)
+                                                                    }));
+                                                                }
+                                                            }}
+                                                            className="p-1 text-red-400 rounded text-xs"
+                                                            title="削除"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
                                                 </div>
+
+                                                {/* Sub-items section */}
+                                                {isExpanded && (
+                                                    <div className={`mt-2 pl-3 border-l-2 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-xs text-gray-500">サブ項目</span>
+                                                            <button
+                                                                onClick={() => toggleSubItems(idx)}
+                                                                className={`text-xs px-2 py-0.5 rounded ${hasSubItemsEnabled ? 'bg-green-500 text-white' : dark ? 'bg-gray-700' : 'bg-gray-200'}`}
+                                                            >
+                                                                {hasSubItemsEnabled ? 'オン' : 'オフ'}
+                                                            </button>
+                                                        </div>
+                                                        {subItems.map((subItem, subIdx) => (
+                                                            <div key={subIdx} className="flex items-center gap-1 mb-1">
+                                                                <span className="text-gray-400 text-xs">└</span>
+                                                                <input
+                                                                    type="text"
+                                                                    value={subItem}
+                                                                    onChange={(e) => updateSubItem(idx, subIdx, e.target.value)}
+                                                                    className={`flex-1 bg-transparent border-b text-xs px-1 py-0.5 ${dark ? 'border-gray-600' : 'border-gray-300'} focus:border-purple-500 outline-none`}
+                                                                />
+                                                                <button
+                                                                    onClick={() => removeSubItem(idx, subIdx)}
+                                                                    className="text-red-400 text-xs p-0.5"
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        <div className="flex gap-1 mt-1">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="サブ項目を追加..."
+                                                                className={`flex-1 text-xs px-2 py-1 rounded ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'} border`}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter' && e.target.value.trim()) {
+                                                                        addSubItem(idx, e.target.value);
+                                                                        e.target.value = '';
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    const input = e.target.previousElementSibling;
+                                                                    if (input.value.trim()) {
+                                                                        addSubItem(idx, input.value);
+                                                                        input.value = '';
+                                                                    }
+                                                                }}
+                                                                className="text-xs px-2 py-1 bg-purple-600 text-white rounded"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1009,7 +1148,7 @@ export default function App() {
                                             if (e.key === 'Enter' && tempNewItem.trim()) {
                                                 update(s => ({
                                                     cats: s.cats.map(c => c.id === cat.id
-                                                        ? { ...c, items: [...c.items, tempNewItem.trim()] }
+                                                        ? { ...c, items: [...c.items, { name: tempNewItem.trim(), subItems: [], hasSubItems: false }] }
                                                         : c
                                                     )
                                                 }));
@@ -1024,7 +1163,7 @@ export default function App() {
                                             if (tempNewItem.trim()) {
                                                 update(s => ({
                                                     cats: s.cats.map(c => c.id === cat.id
-                                                        ? { ...c, items: [...c.items, tempNewItem.trim()] }
+                                                        ? { ...c, items: [...c.items, { name: tempNewItem.trim(), subItems: [], hasSubItems: false }] }
                                                         : c
                                                     )
                                                 }));
