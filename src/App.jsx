@@ -816,9 +816,10 @@ export default function App() {
 
                     const handleTouchStartItem = (e, item, idx) => {
                         isLongPress.current = false;
-                        touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                        const touch = e.touches[0];
+                        touchStartPos.current = { x: touch.clientX, y: touch.clientY, item, idx };
 
-                        // Check weight for current item to use in timeout
+                        // Check weight for current item
                         const w = weights[item] ?? 1;
                         const isDisabled = w === 0;
 
@@ -854,14 +855,32 @@ export default function App() {
                             clearTimeout(longPressTimer.current);
                             longPressTimer.current = null;
                         }
+
+                        // If it was a long press, don't trigger tap action
                         if (isLongPress.current) {
-                            if (e.cancelable) e.preventDefault();
+                            isLongPress.current = false;
+                            touchStartPos.current = null;
+                            return;
+                        }
+
+                        // Short tap - show menu
+                        if (touchStartPos.current) {
+                            const { x, y, item, idx } = touchStartPos.current;
+                            setItemMenu({ item, idx, x, y });
+                            touchStartPos.current = null;
+                            e.preventDefault(); // Prevent subsequent click
                         }
                     };
 
                     const handleContextMenu = (e, item, idx) => {
                         e.preventDefault();
                         // Right click always shows menu
+                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
+                    };
+
+                    const handleClickItem = (e, item, idx) => {
+                        // Only for mouse/desktop - touch is handled by touchEnd
+                        if (e.clientX === 0 && e.clientY === 0) return; // Touch event, ignore
                         setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
                     };
 
@@ -906,15 +925,7 @@ export default function App() {
                                                     onTouchEnd={handleTouchEndItem}
                                                     onTouchMove={handleTouchMoveItem}
                                                     onContextMenu={(e) => handleContextMenu(e, item, idx)}
-                                                    onClick={(e) => {
-                                                        if (isLongPress.current) {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            return;
-                                                        }
-                                                        // Tap Action: Show Menu
-                                                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
-                                                    }}
+                                                    onClick={(e) => handleClickItem(e, item, idx)}
                                                     className={`flex-1 text-left px-3 py-2 rounded-lg transition select-none ${store.results[cat.id] === item
                                                         ? 'bg-purple-600 text-white'
                                                         : isDisabled
