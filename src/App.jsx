@@ -405,9 +405,9 @@ export default function App() {
                     <button onClick={() => update(s => ({ dark: !s.dark }))} className={btnCls}>{dark ? '☀️' : '🌙'}</button>
                 </div>
 
-                <div className="flex flex-wrap gap-2 justify-center mb-5">
-                    {[['main', '🎲メイン'], ['history', '📜履歴'], ['favs', '⭐お気に入り'], ['presets', '📁プリセット'], ['settings', '⚙️設定']].map(([k, label]) => (
-                        <button key={k} onClick={() => setPage(k)} className={`px-3 py-1.5 rounded-full text-sm transition ${page === k ? 'bg-purple-600 text-white' : btnCls}`}>{label}</button>
+                <div className="flex flex-wrap gap-1 justify-center mb-3">
+                    {[['main', '🎲'], ['history', '📜'], ['favs', '⭐'], ['presets', '📁'], ['settings', '⚙️']].map(([k, label]) => (
+                        <button key={k} onClick={() => setPage(k)} className={`px-2 py-1 rounded-full text-xs transition ${page === k ? 'bg-purple-600 text-white' : btnCls}`}>{label}</button>
                     ))}
                 </div>
 
@@ -469,12 +469,9 @@ export default function App() {
                                             <span className="text-xs text-gray-500">{cat.items.length}件</span>
                                         </div>
                                         <div className="flex gap-1">
-                                            <button onClick={() => toggleLock(cat.id)} className={`p-1.5 rounded-lg text-sm ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
-                                            {store.showHiddenControl && (
-                                                <button onClick={() => update(s => ({ cats: s.cats.map(c => c.id === cat.id ? { ...c, hidden: !c.hidden } : c) }))} className={btnCls + ' text-gray-500'}>{cat.hidden ? '👁' : '🙈'}</button>
-                                            )}
-                                            <button onClick={() => { if (confirm('削除しますか？')) update(s => ({ cats: s.cats.filter(c => c.id !== cat.id) })); }} className={btnCls + ' text-red-400'}>🗑️</button>
-                                            <button onClick={() => openEditModal(cat)} className={btnCls + ' text-gray-400'}>✏️</button>
+                                            <button onClick={() => toggleLock(cat.id)} className={`p-1 rounded text-xs ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
+                                            <button onClick={() => { if (confirm('削除しますか？')) update(s => ({ cats: s.cats.filter(c => c.id !== cat.id) })); }} className={btnCls + ' p-1 text-red-400'}>🗑️</button>
+                                            <button onClick={() => openEditModal(cat)} className={btnCls + ' p-1 text-gray-400'}>✏️</button>
                                         </div>
                                     </div>
                                     <div
@@ -753,45 +750,45 @@ export default function App() {
                     const colorOptions = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
 
                     return (
-                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
-                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
-                                <h3 className="text-lg font-bold mb-4">項目を編集</h3>
-                                <div className="mb-3">
-                                    <label className="block text-sm text-gray-500 mb-1">項目名</label>
-                                    <div className="flex gap-2">
-                                        <span className="text-2xl">{tempEmoji}</span>
-                                        <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls} style={{ color: tempColor }} />
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2" onClick={() => setModal(null)}>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-4 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
+                                <h3 className="text-base font-bold mb-3">項目を編集</h3>
+                                <div className="mb-2">
+                                    <label className="block text-xs text-gray-500 mb-1">項目名</label>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="text-xl">{tempEmoji}</span>
+                                        <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls + ' text-sm py-1'} style={{ color: tempColor }} />
                                     </div>
                                 </div>
-                                <div className="mb-3">
-                                    <label className="block text-sm text-gray-500 mb-1">絵文字</label>
-                                    <div className="flex flex-wrap gap-1">
+                                <div className="mb-2">
+                                    <label className="block text-xs text-gray-500 mb-1">候補（1行に1つ）</label>
+                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={8} className={inputCls + ' resize-none font-mono text-xs'} spellCheck={false} />
+                                    <div className="text-xs text-gray-500 mt-0.5">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block text-xs text-gray-500 mb-1">絵文字</label>
+                                    <div className="flex flex-wrap gap-0.5">
                                         {emojiOptions.map(e => (
-                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w-9 h-9 text-xl rounded-lg ${tempEmoji === e ? 'bg-purple-600 ring-2 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
+                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w-7 h-7 text-base rounded ${tempEmoji === e ? 'bg-purple-600 ring-1 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="mb-3">
-                                    <label className="block text-sm text-gray-500 mb-1">色</label>
-                                    <div className="flex flex-wrap gap-2">
+                                <div className="mb-2">
+                                    <label className="block text-xs text-gray-500 mb-1">色</label>
+                                    <div className="flex flex-wrap gap-1">
                                         {colorOptions.map(c => (
-                                            <button key={c} onClick={() => setTempColor(c)} className={`w-8 h-8 rounded-full ${tempColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`} style={{ backgroundColor: c }} />
+                                            <button key={c} onClick={() => setTempColor(c)} className={`w-6 h-6 rounded-full ${tempColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : ''}`} style={{ backgroundColor: c }} />
                                         ))}
                                     </div>
                                 </div>
-                                <div className="mb-3">
-                                    <label className="block text-sm text-gray-500 mb-1">候補（1行に1つ）</label>
-                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={6} className={inputCls + ' resize-none font-mono text-sm'} spellCheck={false} />
-                                    <div className="text-xs text-gray-500 mt-1">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
-                                </div>
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                    <button onClick={toggleHidden} className={btnCls}>{modal.hidden ? '👁 表示する' : '🙈 非表示'}</button>
-                                    <button onClick={dupCat} className={btnCls}>📋 複製</button>
-                                    <button onClick={deleteCat} className={`${btnCls} text-red-400`}>🗑️ 削除</button>
+                                <div className="flex flex-wrap gap-1 mb-3">
+                                    <button onClick={toggleHidden} className={btnCls + ' text-xs py-1 px-2'}>{modal.hidden ? '👁 表示' : '🙈 非表示'}</button>
+                                    <button onClick={dupCat} className={btnCls + ' text-xs py-1 px-2'}>📋 複製</button>
+                                    <button onClick={deleteCat} className={`${btnCls} text-red-400 text-xs py-1 px-2`}>🗑️ 削除</button>
                                 </div>
                                 <div className="flex justify-end gap-2">
-                                    <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
-                                    <button onClick={saveEditModal} className="px-4 py-2 bg-purple-600 text-white rounded-lg">保存</button>
+                                    <button onClick={() => setModal(null)} className={btnCls + ' text-xs py-1'}>キャンセル</button>
+                                    <button onClick={saveEditModal} className="px-3 py-1 bg-purple-600 text-white rounded-lg text-xs">保存</button>
                                 </div>
                             </div>
                         </div>
@@ -953,18 +950,16 @@ export default function App() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex gap-1 shrink-0">
+                                                <div className="flex shrink-0">
                                                     <button
                                                         onClick={() => {
-                                                            // Duplicate
                                                             update(s => ({
                                                                 cats: s.cats.map(c => c.id === cat.id
                                                                     ? { ...c, items: [...c.items.slice(0, idx + 1), item, ...c.items.slice(idx + 1)] }
                                                                     : c)
                                                             }));
-                                                            toast('複製しました');
                                                         }}
-                                                        className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                                                        className="p-1 text-gray-400 hover:text-blue-400 rounded text-xs"
                                                         title="複製"
                                                     >
                                                         📄
@@ -976,7 +971,7 @@ export default function App() {
                                                                 locked: { ...s.locked, [cat.id]: true }
                                                             }));
                                                         }}
-                                                        className={`p-2 rounded-lg ${isLocked ? 'text-purple-500 bg-purple-100 dark:bg-purple-900/30' : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
+                                                        className={`p-1 rounded text-xs ${isLocked ? 'text-purple-500' : 'text-gray-400 hover:text-purple-500'}`}
                                                         title="この候補で固定"
                                                     >
                                                         {isLocked ? '🔒' : '🔓'}
@@ -989,7 +984,7 @@ export default function App() {
                                                                 }));
                                                             }
                                                         }}
-                                                        className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                                                        className="p-1 text-red-400 rounded text-xs"
                                                         title="削除"
                                                     >
                                                         🗑️
