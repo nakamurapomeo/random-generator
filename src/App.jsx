@@ -69,7 +69,9 @@ export default function App() {
     const [dragId, setDragId] = useState(null);
     const [dragOverId, setDragOverId] = useState(null);
     const [selectModal, setSelectModal] = useState(null);
+    const [itemMenu, setItemMenu] = useState(null);
     const dragNode = useRef(null);
+    const longPressTimer = useRef(null);
 
     const toast = (t) => { setMsg(t); setTimeout(() => setMsg(''), 1500); };
 
@@ -812,11 +814,53 @@ return (
                     }));
                 };
 
+                const handleTouchStartItem = (e, item, idx) => {
+                    longPressTimer.current = setTimeout(() => {
+                        setItemMenu({ item, idx, x: e.touches[0].clientX, y: e.touches[0].clientY });
+                    }, 500);
+                };
+
+                const handleTouchEndItem = () => {
+                    if (longPressTimer.current) {
+                        clearTimeout(longPressTimer.current);
+                        longPressTimer.current = null;
+                    }
+                };
+
+                const handleContextMenu = (e, item, idx) => {
+                    e.preventDefault();
+                    setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
+                };
+
+                const deleteItem = (itemToDelete) => {
+                    if (!confirm(`「${itemToDelete}」を削除しますか？`)) return;
+                    update(s => ({
+                        cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter(i => i !== itemToDelete) } : c)
+                    }));
+                    setItemMenu(null);
+                };
+
+                const editItem = (oldItem, idx) => {
+                    const newItem = prompt('名称を編集:', oldItem);
+                    if (newItem && newItem.trim() !== '' && newItem !== oldItem) {
+                        update(s => ({
+                            cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((i, iIdx) => iIdx === idx ? newItem : i) } : c)
+                        }));
+                    }
+                    setItemMenu(null);
+                };
+
+                const copyItem = (text) => {
+                    navigator.clipboard.writeText(text);
+                    toast('コピーしました');
+                    setItemMenu(null);
+                };
+
                 return (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectModal(null)}>
-                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col`} onClick={e => e.stopPropagation()}>
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setSelectModal(null); setItemMenu(null); }}>
+                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`} onClick={e => e.stopPropagation()}>
                             <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
-                            <p className="text-sm text-gray-500 mb-3">タップで固定 / ±で出やすさ調整（0=出ない）</p>
+                            <p className="text-sm text-gray-500 mb-3">タップで固定 / 長押しでメニュー</p>
                             <div className="overflow-y-auto flex-1 space-y-2">
                                 {cat.items.map((item, idx) => {
                                     const w = weights[item] ?? 1;
@@ -825,6 +869,10 @@ return (
                                         <div key={idx} className={`flex items-center gap-2 rounded-lg transition ${isDisabled ? 'opacity-40' : ''
                                             } ${store.results[cat.id] === item ? 'ring-2 ring-purple-500' : ''}`}>
                                             <button
+                                                onTouchStart={(e) => handleTouchStartItem(e, item, idx)}
+                                                onTouchEnd={handleTouchEndItem}
+                                                onTouchMove={handleTouchEndItem}
+                                                onContextMenu={(e) => handleContextMenu(e, item, idx)}
                                                 onClick={() => {
                                                     if (!isDisabled) {
                                                         update(s => ({
@@ -835,14 +883,14 @@ return (
                                                         toast(`「${item}」を選択・固定しました`);
                                                     }
                                                 }}
-                                                className={`flex-1 text-left px-3 py-2 rounded-lg transition ${store.results[cat.id] === item
+                                                className={`flex-1 text-left px-3 py-2 rounded-lg transition select-none ${store.results[cat.id] === item
                                                     ? 'bg-purple-600 text-white'
                                                     : isDisabled
                                                         ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
                                                         : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
                                                     }`}
                                             >
-                                                <span className="truncate">{item}</span>
+                                                <span className="break-all whitespace-pre-wrap">{item}</span>
                                                 {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
                                             </button>
                                             {store.showWeightIndicator && (
