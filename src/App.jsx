@@ -72,6 +72,8 @@ export default function App() {
     const [itemMenu, setItemMenu] = useState(null);
     const dragNode = useRef(null);
     const longPressTimer = useRef(null);
+    const isLongPress = useRef(false);
+    const touchStartPos = useRef(null);
 
     const toast = (t) => { setMsg(t); setTimeout(() => setMsg(''), 1500); };
 
@@ -813,21 +815,42 @@ export default function App() {
                     };
 
                     const handleTouchStartItem = (e, item, idx) => {
+                        isLongPress.current = false;
+                        touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                         longPressTimer.current = setTimeout(() => {
+                            isLongPress.current = true;
                             setItemMenu({ item, idx, x: e.touches[0].clientX, y: e.touches[0].clientY });
                         }, 500);
                     };
 
-                    const handleTouchEndItem = () => {
+                    const handleTouchMoveItem = (e) => {
+                        if (touchStartPos.current) {
+                            const moveX = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
+                            const moveY = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
+                            if (moveX > 10 || moveY > 10) {
+                                if (longPressTimer.current) {
+                                    clearTimeout(longPressTimer.current);
+                                    longPressTimer.current = null;
+                                }
+                            }
+                        }
+                    };
+
+                    const handleTouchEndItem = (e) => {
                         if (longPressTimer.current) {
                             clearTimeout(longPressTimer.current);
                             longPressTimer.current = null;
+                        }
+                        if (isLongPress.current) {
+                            if (e.cancelable) e.preventDefault();
                         }
                     };
 
                     const handleContextMenu = (e, item, idx) => {
                         e.preventDefault();
-                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
+                        if (!isLongPress.current) {
+                            setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
+                        }
                     };
 
                     const deleteItem = (itemToDelete) => {
@@ -869,9 +892,14 @@ export default function App() {
                                                 <button
                                                     onTouchStart={(e) => handleTouchStartItem(e, item, idx)}
                                                     onTouchEnd={handleTouchEndItem}
-                                                    onTouchMove={handleTouchEndItem}
+                                                    onTouchMove={handleTouchMoveItem}
                                                     onContextMenu={(e) => handleContextMenu(e, item, idx)}
-                                                    onClick={() => {
+                                                    onClick={(e) => {
+                                                        if (isLongPress.current) {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            return;
+                                                        }
                                                         if (!isDisabled) {
                                                             update(s => ({
                                                                 results: { ...s.results, [cat.id]: item },
@@ -887,6 +915,7 @@ export default function App() {
                                                             ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
                                                             : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
                                                         }`}
+                                                    style={{ WebkitTouchCallout: 'none', userSelect: 'none' }}
                                                 >
                                                     <span className="break-all whitespace-pre-wrap">{item}</span>
                                                     {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
