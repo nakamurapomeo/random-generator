@@ -914,66 +914,56 @@ export default function App() {
                     return (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setSelectModal(null); setItemMenu(null); }}>
                             <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`} onClick={e => e.stopPropagation()}>
-                                <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
-                                <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
-                                <p className="text-sm text-gray-500 mb-3">タップで固定 / 右のボタンでメニュー</p>
+                                <h3 className="text-lg font-bold mb-2">「{cat.name}」の編集</h3>
+                                <p className="text-sm text-gray-500 mb-3">候補の内容を直接編集できます</p>
                                 <div className="overflow-y-auto flex-1 space-y-2">
                                     {cat.items.map((item, idx) => {
                                         const w = weights[item] ?? 1;
                                         const isDisabled = w === 0;
+                                        const isLocked = store.results[cat.id] === item;
                                         return (
-                                            <div key={idx} className={`flex items-center gap-2 rounded-lg transition ${isDisabled ? 'opacity-40' : ''
-                                                } ${store.results[cat.id] === item ? 'ring-2 ring-purple-500' : ''}`}>
+                                            <div key={idx} className={`flex items-center gap-2 rounded-lg p-2 ${isLocked ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''}`}>
+                                                <input
+                                                    type="text"
+                                                    value={item}
+                                                    onChange={(e) => {
+                                                        const newItem = e.target.value;
+                                                        update(s => ({
+                                                            cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((old, i) => i === idx ? newItem : old) } : c)
+                                                        }));
+                                                    }}
+                                                    className={`flex-1 bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition ${dark ? 'border-gray-600' : ''}`}
+                                                />
                                                 <button
                                                     onClick={() => {
-                                                        if (!isDisabled) {
-                                                            update(s => ({
-                                                                results: { ...s.results, [cat.id]: item },
-                                                                locked: { ...s.locked, [cat.id]: true }
-                                                            }));
-                                                            setSelectModal(null);
-                                                            toast(`「${item}」を選択・固定しました`);
-                                                        }
+                                                        update(s => ({
+                                                            results: { ...s.results, [cat.id]: item },
+                                                            locked: { ...s.locked, [cat.id]: true }
+                                                        }));
+                                                        // Require explicit close if desired, or stay open to manage?
+                                                        // User said "edit content", so staying open is better for bulk edits.
+                                                        // But locking usually implies done. Let's keep it open or just toggle lock?
+                                                        // "Tap to fix is not needed" -> Maybe just toggle lock status without closing?
+                                                        // Let's make it a toggle button.
                                                     }}
-                                                    className={`flex-1 text-left px-3 py-2 rounded-lg transition select-none ${store.results[cat.id] === item
-                                                        ? 'bg-purple-600 text-white'
-                                                        : isDisabled
-                                                            ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
-                                                            : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
-                                                        }`}
+                                                    className={`p-2 rounded-lg shrink-0 ${isLocked ? 'text-purple-500 bg-purple-100 dark:bg-purple-900/30' : 'text-gray-400 hover:text-purple-500'}`}
+                                                    title="この候補で固定"
                                                 >
-                                                    <span className="break-all whitespace-pre-wrap">{item}</span>
-                                                    {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
+                                                    {isLocked ? '🔒' : '🔓'}
                                                 </button>
                                                 <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setItemMenu({ item, idx, x: e.nativeEvent.clientX || e.clientX, y: e.nativeEvent.clientY || e.clientY });
+                                                    onClick={() => {
+                                                        if (confirm('削除しますか？')) {
+                                                            update(s => ({
+                                                                cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter((_, i) => i !== idx) } : c)
+                                                            }));
+                                                        }
                                                     }}
-                                                    className={`p-2 rounded-lg shrink-0 ${dark ? 'hover:bg-slate-700' : 'hover:bg-gray-200'}`}
+                                                    className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg shrink-0"
+                                                    title="削除"
                                                 >
-                                                    ︙
+                                                    🗑️
                                                 </button>
-                                                {store.showWeightIndicator && (
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); updateWeight(item, -1); }}
-                                                            className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                                        >
-                                                            −
-                                                        </button>
-                                                        <span className={`w-6 text-center text-sm font-medium ${w === 0 ? 'text-red-400' : w >= 3 ? 'text-green-400' : ''
-                                                            }`}>
-                                                            {w}
-                                                        </span>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); updateWeight(item, 1); }}
-                                                            className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                                        >
-                                                            ＋
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     })}
@@ -992,7 +982,6 @@ export default function App() {
                                                     )
                                                 }));
                                                 setTempNewItem('');
-                                                toast('候補を追加しました');
                                             }
                                         }}
                                         placeholder="新しい候補を追加..."
@@ -1008,7 +997,6 @@ export default function App() {
                                                     )
                                                 }));
                                                 setTempNewItem('');
-                                                toast('候補を追加しました');
                                             }
                                         }}
                                         className="px-4 py-2 bg-purple-600 text-white rounded-lg shrink-0"
