@@ -4,10 +4,12 @@
     "description": "ランダムジェネレーターアプリ",
     "private": true,
     "type": "module",
+    "homepage": "https://nakamurapomeo.github.io/random-generator/",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "deploy": "npm run build && gh-pages -d dist"
     },
     "dependencies": {
         "react": "^18.3.1",
@@ -16,6 +18,7 @@
     "devDependencies": {
         "@vitejs/plugin-react": "^4.3.4",
         "autoprefixer": "^10.4.20",
+        "gh-pages": "^6.3.0",
         "postcss": "^8.4.49",
         "sharp": "^0.34.5",
         "tailwindcss": "^3.4.17",
