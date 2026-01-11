@@ -14,7 +14,7 @@ export default defineConfig({
                 description: '項目からランダムに選択するジェネレーター',
                 theme_color: '#7c3aed',
                 background_color: '#0f172a',
-                display: 'standalone',
+                display: 'fullscreen',
                 orientation: 'portrait',
                 start_url: './',
                 scope: './',
