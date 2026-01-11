@@ -228,6 +228,74 @@ export default function App() {
         }
     };
 
+    // Bulk add images as image-only candidates
+    const handleBulkImageAdd = async (catId, files) => {
+        try {
+            const cat = store.cats.find(c => c.id === catId);
+            if (!cat) return;
+
+            const existingNames = new Set(cat.items.map(item => getItemName(item)));
+            const newItems = [];
+            const newImageCache = {};
+            let skipped = 0;
+
+            for (const file of files) {
+                if (!file.type.startsWith('image/')) continue;
+
+                // Use filename without extension as item name
+                const itemName = file.name.replace(/\.[^/.]+$/, '');
+
+                // Check for duplicates
+                if (existingNames.has(itemName)) {
+                    skipped++;
+                    continue;
+                }
+
+                const imageId = generateImageId(catId, itemName);
+                let base64Data;
+
+                if (store.resizeImages) {
+                    base64Data = await resizeImage(file, store.maxImageSize);
+                } else {
+                    base64Data = await readImageAsBase64(file);
+                }
+
+                await saveImage(imageId, base64Data);
+                newImageCache[imageId] = base64Data;
+
+                newItems.push({
+                    name: itemName,
+                    subItems: [],
+                    hasSubItems: false,
+                    imageId
+                });
+
+                existingNames.add(itemName);
+            }
+
+            if (newItems.length > 0) {
+                setImageCache(prev => ({ ...prev, ...newImageCache }));
+                update(s => ({
+                    cats: s.cats.map(c => c.id === catId
+                        ? { ...c, items: [...c.items, ...newItems] }
+                        : c
+                    )
+                }));
+            }
+
+            if (skipped > 0) {
+                toast(`${newItems.length}件追加（${skipped}件スキップ）`);
+            } else if (newItems.length > 0) {
+                toast(`${newItems.length}件の画像を追加しました`);
+            } else {
+                toast('追加できる画像がありませんでした');
+            }
+        } catch (err) {
+            console.error('Failed to bulk add images:', err);
+            toast('画像の追加に失敗しました');
+        }
+    };
+
     const update = (fn) => setStore(prev => ({ ...prev, ...fn(prev) }));
 
     const visibleCats = store.showHidden ? store.cats : store.cats.filter(c => !c.hidden);
@@ -1392,6 +1460,42 @@ export default function App() {
                                         追加
                                     </button>
                                 </div>
+
+                                {/* Bulk image upload section */}
+                                <label
+                                    className={`mt-3 flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-dashed cursor-pointer transition ${dark ? 'bg-slate-800/50 border-slate-500 hover:bg-slate-700/50' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'}`}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.add('ring-2', 'ring-purple-500');
+                                    }}
+                                    onDragLeave={(e) => {
+                                        e.currentTarget.classList.remove('ring-2', 'ring-purple-500');
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.remove('ring-2', 'ring-purple-500');
+                                        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                                        if (files.length > 0) {
+                                            handleBulkImageAdd(cat.id, files);
+                                        }
+                                    }}
+                                >
+                                    <span className="text-sm">🖼️ 画像を一括追加</span>
+                                    <span className="text-xs text-gray-400">複数選択またはドラッグ&ドロップ（重複はスキップ）</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files);
+                                            if (files.length > 0) {
+                                                handleBulkImageAdd(cat.id, files);
+                                            }
+                                            e.target.value = '';
+                                        }}
+                                    />
+                                </label>
                                 <div className="flex justify-between mt-4 pt-3 border-t border-gray-600">
                                     <button
                                         onClick={() => {
