@@ -67,6 +67,7 @@ export default function App() {
     const [tempImport, setTempImport] = useState('');
     const [tempNewItem, setTempNewItem] = useState('');
     const [lastGeneratedIds, setLastGeneratedIds] = useState([]);
+    const [expandTextarea, setExpandTextarea] = useState(false);
 
     const [dragId, setDragId] = useState(null);
     const [dragOverId, setDragOverId] = useState(null);
@@ -476,10 +477,10 @@ export default function App() {
                                     </div>
                                     <div
                                         onClick={() => cat.items.length > 0 && setSelectModal({ cat })}
-                                        className={`min-h-[44px] flex items-center justify-center rounded-lg px-3 py-2 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} ${store.mainResultFontSize === 'small' ? 'text-sm' : store.mainResultFontSize === 'large' ? 'text-2xl' : 'text-lg'}`}
+                                        className={`min-h-[36px] flex items-center justify-center rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text-sm`}
                                         title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
                                     >
-                                        {store.results[cat.id] || <span className="text-gray-500 text-base">---</span>}
+                                        {store.results[cat.id] || <span className="text-gray-500 text-xs">---</span>}
                                     </div>
                                 </div>
                             ))}
@@ -761,8 +762,13 @@ export default function App() {
                                     </div>
                                 </div>
                                 <div className="mb-2">
-                                    <label className="block text-xs text-gray-500 mb-1">候補（1行に1つ）</label>
-                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={8} className={inputCls + ' resize-none font-mono text-xs'} spellCheck={false} />
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-xs text-gray-500">候補（1行に1つ）</label>
+                                        <button onClick={() => setExpandTextarea(!expandTextarea)} className={btnCls + ' text-xs py-0.5 px-2'}>
+                                            {expandTextarea ? '▲ 縮小' : '▼ 全て表示'}
+                                        </button>
+                                    </div>
+                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={expandTextarea ? 20 : 6} className={inputCls + ' resize-none font-mono text-xs'} spellCheck={false} />
                                     <div className="text-xs text-gray-500 mt-0.5">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
                                 </div>
                                 <div className="mb-2">
@@ -930,16 +936,16 @@ export default function App() {
                                         return (
                                             <div key={idx} className={`flex items-center gap-2 rounded-lg p-2 ${isLocked ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''}`}>
                                                 <div className="flex flex-col flex-1 min-w-0">
-                                                    <input
-                                                        type="text"
+                                                    <textarea
                                                         value={item}
+                                                        rows={Math.max(1, Math.ceil(item.length / 20))}
                                                         onChange={(e) => {
                                                             const newItem = e.target.value;
                                                             update(s => ({
                                                                 cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((old, i) => i === idx ? newItem : old) } : c)
                                                             }));
                                                         }}
-                                                        className={`bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition w-full ${dark ? 'border-gray-600' : ''}`}
+                                                        className={`bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition w-full text-xs resize-none ${dark ? 'border-gray-600' : ''}`}
                                                     />
                                                     {store.showWeightIndicator && (
                                                         <div className="flex items-center gap-1 mt-1">
