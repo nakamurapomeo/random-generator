@@ -12,7 +12,12 @@ const INIT_DATA = {
     presets: [],
     dark: true,
     noRepeat: false,
-    showHidden: false
+    showHidden: false,
+    // New settings
+    showAnimation: false,
+    autoLockOnSelect: true,
+    showWeightIndicator: true,
+    compactMode: false
 };
 
 // Helper function for weighted random selection
@@ -128,8 +133,10 @@ export default function App() {
     };
 
     const doGenerate = () => {
-        setSpin(true);
-        setTimeout(() => {
+        const delay = store.showAnimation ? 300 : 0;
+        if (delay > 0) setSpin(true);
+
+        const runGeneration = () => {
             const allResults = [];
             for (let g = 0; g < genCount; g++) {
                 const newRes = {};
@@ -138,7 +145,6 @@ export default function App() {
                         newRes[c.id] = store.results[c.id] || '';
                     } else if (c.items.length > 0) {
                         const weights = c.weights || {};
-                        // Filter items with weight > 0
                         let pool = c.items.filter(item => (weights[item] ?? 1) > 0);
                         if (pool.length === 0) {
                             newRes[c.id] = '';
@@ -165,7 +171,13 @@ export default function App() {
             }));
             setSpin(false);
             if (genCount > 1) toast(`${genCount}件生成しました`);
-        }, 400);
+        };
+
+        if (delay > 0) {
+            setTimeout(runGeneration, delay);
+        } else {
+            runGeneration();
+        }
     };
 
     const openEditModal = (cat) => {
@@ -370,7 +382,8 @@ export default function App() {
                                     onTouchStart={() => handleTouchStart(cat.id)}
                                     onTouchMove={(e) => handleTouchMove(e, displayCats)}
                                     onTouchEnd={handleTouchEnd}
-                                    className={`${cardCls} p-3 ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} cursor-grab active:cursor-grabbing`}
+                                    className={`${store.compactMode ? 'p-2' : 'p-3'} rounded-xl ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} cursor-grab active:cursor-grabbing ${dark ? 'bg-slate-800/60' : 'bg-white/80 shadow-sm'}`}
+                                    style={{ borderLeft: `4px solid ${cat.color || '#a855f7'}` }}
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
@@ -396,15 +409,19 @@ export default function App() {
                             ))}
                         </div>
 
-                        <div className="flex flex-wrap gap-2 justify-center items-center mb-4">
-                            <div className="flex items-center gap-1">
-                                <button onClick={() => setGenCount(Math.max(1, genCount - 1))} className={btnCls}>−</button>
-                                <span className="w-8 text-center">{genCount}</span>
-                                <button onClick={() => setGenCount(Math.min(10, genCount + 1))} className={btnCls}>＋</button>
+                        <div className="flex flex-col gap-3 mb-4">
+                            <button onClick={doGenerate} disabled={spin} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50">
+                                {spin ? '...' : '🎲 生成'}
+                            </button>
+                            <div className="flex flex-wrap gap-2 justify-center items-center">
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => setGenCount(Math.max(1, genCount - 1))} className={btnCls}>−</button>
+                                    <span className="w-8 text-center text-sm">{genCount}回</span>
+                                    <button onClick={() => setGenCount(Math.min(10, genCount + 1))} className={btnCls}>＋</button>
+                                </div>
+                                <button onClick={addFav} className={btnCls}>⭐ お気に入り</button>
+                                <button onClick={copyResult} className={btnCls}>📋 コピー</button>
                             </div>
-                            <button onClick={doGenerate} disabled={spin} className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow-lg hover:scale-105 transition disabled:opacity-50">{spin ? '...' : '🎲 生成'}</button>
-                            <button onClick={addFav} className={btnCls}>⭐</button>
-                            <button onClick={copyResult} className={btnCls}>📋</button>
                         </div>
 
                         <div className="flex flex-wrap gap-2 justify-center">
@@ -482,17 +499,53 @@ export default function App() {
                 {page === 'settings' && (
                     <div className="space-y-3">
                         <div className={cardCls + ' p-4'}>
-                            <h3 className="font-semibold mb-3">オプション</h3>
+                            <h3 className="font-semibold mb-3">生成オプション</h3>
                             <div className="flex items-center justify-between mb-3">
-                                <span>連続重複を防ぐ</span>
+                                <div>
+                                    <span>連続重複を防ぐ</span>
+                                    <p className="text-xs text-gray-500">同じ結果が連続しない</p>
+                                </div>
                                 <button onClick={() => update(s => ({ noRepeat: !s.noRepeat }))} className={`w-12 h-6 rounded-full transition ${store.noRepeat ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
                                     <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.noRepeat ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>生成アニメーション</span>
+                                    <p className="text-xs text-gray-500">ONで0.3秒の演出あり</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showAnimation: !s.showAnimation }))} className={`w-12 h-6 rounded-full transition ${store.showAnimation ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showAnimation ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
                             <div className="flex items-center justify-between">
-                                <span>ダークモード</span>
+                                <div>
+                                    <span>重み表示</span>
+                                    <p className="text-xs text-gray-500">選択画面で重みを表示</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showWeightIndicator: !s.showWeightIndicator }))} className={`w-12 h-6 rounded-full transition ${store.showWeightIndicator ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showWeightIndicator ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">表示オプション</h3>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>ダークモード</span>
+                                    <p className="text-xs text-gray-500">目に優しい暗い配色</p>
+                                </div>
                                 <button onClick={() => update(s => ({ dark: !s.dark }))} className={`w-12 h-6 rounded-full transition ${dark ? 'bg-purple-600' : 'bg-gray-300'}`}>
                                     <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span>コンパクトモード</span>
+                                    <p className="text-xs text-gray-500">項目カードを小さく</p>
+                                </div>
+                                <button onClick={() => update(s => ({ compactMode: !s.compactMode }))} className={`w-12 h-6 rounded-full transition ${store.compactMode ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.compactMode ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                         </div>
@@ -627,24 +680,26 @@ export default function App() {
                                                     <span className="truncate">{item}</span>
                                                     {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
                                                 </button>
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); updateWeight(item, -1); }}
-                                                        className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                                    >
-                                                        −
-                                                    </button>
-                                                    <span className={`w-6 text-center text-sm font-medium ${w === 0 ? 'text-red-400' : w >= 3 ? 'text-green-400' : ''
-                                                        }`}>
-                                                        {w}
-                                                    </span>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); updateWeight(item, 1); }}
-                                                        className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                                    >
-                                                        ＋
-                                                    </button>
-                                                </div>
+                                                {store.showWeightIndicator && (
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); updateWeight(item, -1); }}
+                                                            className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                                        >
+                                                            −
+                                                        </button>
+                                                        <span className={`w-6 text-center text-sm font-medium ${w === 0 ? 'text-red-400' : w >= 3 ? 'text-green-400' : ''
+                                                            }`}>
+                                                            {w}
+                                                        </span>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); updateWeight(item, 1); }}
+                                                            className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                                        >
+                                                            ＋
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
