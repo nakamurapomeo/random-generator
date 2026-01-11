@@ -65,6 +65,7 @@ export default function App() {
     const [tempPreset, setTempPreset] = useState('');
     const [tempImport, setTempImport] = useState('');
     const [tempNewItem, setTempNewItem] = useState('');
+    const [lastGeneratedIds, setLastGeneratedIds] = useState([]);
 
     const [dragId, setDragId] = useState(null);
     const [dragOverId, setDragOverId] = useState(null);
@@ -172,17 +173,16 @@ export default function App() {
                     time: new Date().toLocaleString()
                 });
             }
+            const generatedIds = allResults.map(r => r.id);
+            setLastGeneratedIds(generatedIds);
             update(s => ({
                 results: allResults[0].res,
-                locked: store.noRepeat ? {} : s.locked, // noRepeat時はロック解除しないと同じものが出ない
-                history: [...allResults.map(r => ({ id: Date.now() + Math.random(), time: new Date().toLocaleString(), res: r.res, names: r.names })), ...s.history].slice(0, 100)
+                locked: store.noRepeat ? {} : s.locked,
+                history: [...allResults.map(r => ({ id: r.id, time: new Date().toLocaleString(), res: r.res, names: r.names })), ...s.history].slice(0, 100)
             }));
 
             if (genCount > 1) {
                 setPage('history');
-                toast(`${genCount}回分を生成しました`);
-            } else {
-                toast('生成しました');
             }
             if (delay > 0) setSpin(false);
         };
@@ -446,19 +446,21 @@ export default function App() {
                                 <div
                                     key={cat.id}
                                     data-catid={cat.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, cat.id)}
-                                    onDragEnd={handleDragEnd}
-                                    onDragOver={(e) => handleDragOver(e, cat.id)}
-                                    onTouchStart={() => handleTouchStart(cat.id)}
-                                    onTouchMove={(e) => handleTouchMove(e, displayCats)}
-                                    onTouchEnd={handleTouchEnd}
-                                    className={`${store.compactMode ? 'p-2' : 'p-3'} rounded-xl ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} cursor-grab active:cursor-grabbing ${dark ? 'bg-slate-800/60' : 'bg-white/80 shadow-sm'}`}
+                                    className={`${store.compactMode ? 'p-2' : 'p-3'} rounded-xl ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} ${dark ? 'bg-slate-800/60' : 'bg-white/80 shadow-sm'}`}
                                     style={{ borderLeft: `4px solid ${cat.color || '#a855f7'}` }}
+                                    onDragOver={(e) => handleDragOver(e, cat.id)}
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 cursor-grab">⠿</span>
+                                            <span
+                                                className="text-gray-400 cursor-grab active:cursor-grabbing select-none"
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, cat.id)}
+                                                onDragEnd={handleDragEnd}
+                                                onTouchStart={() => handleTouchStart(cat.id)}
+                                                onTouchMove={(e) => handleTouchMove(e, displayCats)}
+                                                onTouchEnd={handleTouchEnd}
+                                            >⠿</span>
                                             <span className="text-lg">{cat.emoji || '🎲'}</span>
                                             <span className="font-medium" style={{ color: cat.color || '#a855f7' }}>{cat.name}</span>
                                             {cat.hidden && <span className="text-xs text-gray-500">(非表示)</span>}
@@ -523,8 +525,9 @@ export default function App() {
                         {store.history.length === 0 && <p className="text-center text-gray-500 py-8">履歴なし</p>}
                         {store.history.map(h => {
                             const resultSize = store.resultFontSize === 'small' ? 'text-xs' : store.resultFontSize === 'large' ? 'text-base' : 'text-sm';
+                            const isNew = lastGeneratedIds.includes(h.id);
                             return (
-                                <div key={h.id} className={cardCls + ' p-3'}>
+                                <div key={h.id} className={`${cardCls} p-3 ${isNew ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''}`}>
                                     {store.showHistoryTime && <div className="text-xs text-gray-500 mb-1">{h.time}</div>}
                                     {Object.entries(h.res).map(([id, val]) => {
                                         const cat = store.cats.find(c => c.id === Number(id));
@@ -912,7 +915,8 @@ export default function App() {
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setSelectModal(null); setItemMenu(null); }}>
                             <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`} onClick={e => e.stopPropagation()}>
                                 <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
-                                <p className="text-sm text-gray-500 mb-3">タップでメニュー / 長押しで固定</p>
+                                <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
+                                <p className="text-sm text-gray-500 mb-3">タップで固定 / 右のボタンでメニュー</p>
                                 <div className="overflow-y-auto flex-1 space-y-2">
                                     {cat.items.map((item, idx) => {
                                         const w = weights[item] ?? 1;
@@ -921,21 +925,34 @@ export default function App() {
                                             <div key={idx} className={`flex items-center gap-2 rounded-lg transition ${isDisabled ? 'opacity-40' : ''
                                                 } ${store.results[cat.id] === item ? 'ring-2 ring-purple-500' : ''}`}>
                                                 <button
-                                                    onTouchStart={(e) => handleTouchStartItem(e, item, idx)}
-                                                    onTouchEnd={handleTouchEndItem}
-                                                    onTouchMove={handleTouchMoveItem}
-                                                    onContextMenu={(e) => handleContextMenu(e, item, idx)}
-                                                    onClick={(e) => handleClickItem(e, item, idx)}
+                                                    onClick={() => {
+                                                        if (!isDisabled) {
+                                                            update(s => ({
+                                                                results: { ...s.results, [cat.id]: item },
+                                                                locked: { ...s.locked, [cat.id]: true }
+                                                            }));
+                                                            setSelectModal(null);
+                                                            toast(`「${item}」を選択・固定しました`);
+                                                        }
+                                                    }}
                                                     className={`flex-1 text-left px-3 py-2 rounded-lg transition select-none ${store.results[cat.id] === item
                                                         ? 'bg-purple-600 text-white'
                                                         : isDisabled
                                                             ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
                                                             : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
                                                         }`}
-                                                    style={{ WebkitTouchCallout: 'none', userSelect: 'none' }}
                                                 >
                                                     <span className="break-all whitespace-pre-wrap">{item}</span>
                                                     {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setItemMenu({ item, idx, x: e.nativeEvent.clientX || e.clientX, y: e.nativeEvent.clientY || e.clientY });
+                                                    }}
+                                                    className={`p-2 rounded-lg shrink-0 ${dark ? 'hover:bg-slate-700' : 'hover:bg-gray-200'}`}
+                                                >
+                                                    ︙
                                                 </button>
                                                 {store.showWeightIndicator && (
                                                     <div className="flex items-center gap-1 shrink-0">
