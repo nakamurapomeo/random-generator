@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-    base: './', // GitHub Pages用に相対パスに変更
+    base: '/', // Changed for Cloudflare Pages
     plugins: [
         react(),
         VitePWA({
@@ -17,9 +17,9 @@ export default defineConfig({
                 background_color: '#0f172a',
                 display: 'fullscreen',
                 orientation: 'portrait',
-                start_url: './',
-                scope: './',
-                id: './',
+                start_url: '/',
+                scope: '/',
+                id: '/',
                 icons: [
                     {
                         src: 'icon-192.png',

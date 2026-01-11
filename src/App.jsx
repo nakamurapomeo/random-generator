@@ -859,7 +859,7 @@ export default function App() {
 
                 <div className="flex flex-wrap gap-1 justify-center mb-3">
                     {[['main', '🎲'], ['history', '📜'], ['favs', '⭐'], ['presets', '📁'], ['settings', '⚙️']].map(([k, label]) => (
-                        <button key={k} onClick={() => setPage(k)} className={`px - 2 py - 1 rounded - full text - xs transition ${page === k ? 'bg-purple-600 text-white' : btnCls} `}>{label}</button>
+                        <button key={k} onClick={() => setPage(k)} className={`px-2 py-1 rounded-full text-xs transition ${page === k ? 'bg-purple-600 text-white' : btnCls}`}>{label}</button>
                     ))}
                 </div>
 
@@ -876,7 +876,7 @@ export default function App() {
                                             if (p) loadPreset(p);
                                         }
                                     }}
-                                    className={`flex - 1 ${inputCls} `}
+                                    className={`flex-1 ${inputCls}`}
                                 >
                                     <option value="">📁 プリセットを選択...</option>
                                     {store.presets.map(p => (
@@ -890,7 +890,7 @@ export default function App() {
                         )}
                         {hiddenCount > 0 && (
                             <div className="flex justify-end mb-2">
-                                <button onClick={() => update(s => ({ showHidden: !s.showHidden }))} className={`text - xs ${btnCls} `}>
+                                <button onClick={() => update(s => ({ showHidden: !s.showHidden }))} className={`text-xs ${btnCls}`}>
                                     {store.showHidden ? '🙈 非表示を隠す' : `👁 非表示を表示(${hiddenCount})`}
                                 </button>
                             </div>
@@ -900,8 +900,8 @@ export default function App() {
                                 <div
                                     key={cat.id}
                                     data-catid={cat.id}
-                                    className={`${store.compactMode ? 'p-2' : 'p-3'} rounded - xl ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} ${dark ? 'bg-slate-800/60' : 'bg-white/80 shadow-sm'} `}
-                                    style={{ borderLeft: `4px solid ${cat.color || '#a855f7'} ` }}
+                                    className={`${store.compactMode ? 'p-2' : 'p-3'} rounded-xl ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} ${dark ? 'bg-slate-800/60' : 'bg-white/80 shadow-sm'}`}
+                                    style={{ borderLeft: `4px solid ${cat.color || '#a855f7'}` }}
                                     onDragOver={(e) => handleDragOver(e, cat.id)}
                                 >
                                     <div className="flex items-center justify-between mb-2">
@@ -921,7 +921,7 @@ export default function App() {
                                             <span className="text-xs text-gray-500">{cat.items.length}件</span>
                                         </div>
                                         <div className="flex gap-1">
-                                            <button onClick={() => toggleLock(cat.id)} className={`p - 1 rounded text - xs ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls} `}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
+                                            <button onClick={() => toggleLock(cat.id)} className={`p-1 rounded text-xs ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
                                             <button onClick={() => { update(s => ({ cats: s.cats.filter(c => c.id !== cat.id) })); }} className={btnCls + ' p-1 text-red-400'}>🗑️</button>
                                             <button onClick={() => openEditModal(cat)} className={btnCls + ' p-1 text-gray-400'}>✏️</button>
                                         </div>
@@ -933,7 +933,7 @@ export default function App() {
                                                 setSelectModal({ cat });
                                             }
                                         }}
-                                        className={`min - h - [36px] flex items - center gap - 2 rounded - lg px - 2 py - 1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text - sm`}
+                                        className={`min-h-[36px] flex items-center gap-2 rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text-sm`}
                                         title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
                                     >
                                         {(() => {
@@ -977,7 +977,7 @@ export default function App() {
                                                             onClick={(e) => {
                                                                 if (store.enableImageZoom) {
                                                                     e.stopPropagation();
-                                                                    setZoomImage(imgSrc);
+                                                                    setZoomImage({ src: imgSrc, alt: imgAlt });
                                                                 }
                                                             }}
                                                         />
@@ -989,12 +989,12 @@ export default function App() {
                                     </div>
                                 </div>
                             ))}
-                            <button onClick={addCat} className={`w - full py - 3 mb - 20 border - 2 border - dashed ${dark ? 'border-slate-700 text-slate-500 hover:bg-slate-800' : 'border-gray-300 text-gray-400 hover:bg-gray-50'} rounded - xl transition flex items - center justify - center gap - 2`}>
+                            <button onClick={addCat} className={`w-full py-3 mb-20 border-2 border-dashed ${dark ? 'border-slate-700 text-slate-500 hover:bg-slate-800' : 'border-gray-300 text-gray-400 hover:bg-gray-50'} rounded-xl transition flex items-center justify-center gap-2`}>
                                 <span>＋ 項目を追加</span>
                             </button>
                         </div>
 
-                        <div className={`fixed bottom - 0 left - 0 right - 0 p - 4 ${dark ? 'bg-slate-900/90 border-t border-slate-700' : 'bg-white/90 border-t border-gray-200'} backdrop - blur - md z - 40`}>
+                        <div className={`fixed bottom-0 left-0 right-0 p-4 ${dark ? 'bg-slate-900/90 border-t border-slate-700' : 'bg-white/90 border-t border-gray-200'} backdrop-blur-md z-40`}>
                             <div className="max-w-lg mx-auto">
                                 <div className="flex flex-col gap-3">
                                     <button onClick={doGenerate} disabled={spin} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50">
@@ -1013,7 +1013,7 @@ export default function App() {
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 justify-center pb-20">
+                        <div className="flex flex-wrap gap-2 justify-center pb-48">
                             <button onClick={doExportText} className={btnCls}>📤コピー</button>
                             <button onClick={doExportJSON} className={btnCls}>💾JSON</button>
                             <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={btnCls}>📥インポート</button>
@@ -1126,7 +1126,7 @@ export default function App() {
                 )}
 
                 {page === 'settings' && (
-                    <div className="space-y-3 pb-20">
+                    <div className="space-y-3 pb-48">
                         <div className={cardCls + ' p-4'}>
                             <h3 className="font-semibold mb-3">生成オプション</h3>
                             <div className="flex items-center justify-between mb-3">
@@ -1134,13 +1134,13 @@ export default function App() {
                                     <span>連続重複を防ぐ</span>
                                     <p className="text-xs text-gray-500">同じ結果が連続しない</p>
                                 </div>
-                                <button onClick={() => update(s => ({ noRepeat: !s.noRepeat }))} className={`w - 12 h - 6 rounded - full transition ${store.noRepeat ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.noRepeat ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ noRepeat: !s.noRepeat }))} className={`w-12 h-6 rounded-full transition ${store.noRepeat ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.noRepeat ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             <div className="flex justify-between items-center mb-3">
                                 <span>非表示ボタン（カード）</span>
-                                <button onClick={() => update(s => ({ showHiddenControl: !s.showHiddenControl }))} className={`${btnCls} ${store.showHiddenControl ? 'bg-purple-600 text-white' : ''} `}>
+                                <button onClick={() => update(s => ({ showHiddenControl: !s.showHiddenControl }))} className={`${btnCls} ${store.showHiddenControl ? 'bg-purple-600 text-white' : ''}`}>
                                     {store.showHiddenControl ? '表示' : '非表示'}
                                 </button>
                             </div>
@@ -1149,8 +1149,8 @@ export default function App() {
                                     <span>生成アニメーション</span>
                                     <p className="text-xs text-gray-500">ONで0.3秒の演出あり</p>
                                 </div>
-                                <button onClick={() => update(s => ({ showAnimation: !s.showAnimation }))} className={`w - 12 h - 6 rounded - full transition ${store.showAnimation ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.showAnimation ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ showAnimation: !s.showAnimation }))} className={`w-12 h-6 rounded-full transition ${store.showAnimation ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showAnimation ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             <div className="flex items-center justify-between">
@@ -1158,8 +1158,8 @@ export default function App() {
                                     <span>重み表示</span>
                                     <p className="text-xs text-gray-500">選択画面で重みを表示</p>
                                 </div>
-                                <button onClick={() => update(s => ({ showWeightIndicator: !s.showWeightIndicator }))} className={`w - 12 h - 6 rounded - full transition ${store.showWeightIndicator ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.showWeightIndicator ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ showWeightIndicator: !s.showWeightIndicator }))} className={`w-12 h-6 rounded-full transition ${store.showWeightIndicator ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showWeightIndicator ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                         </div>
@@ -1170,8 +1170,8 @@ export default function App() {
                                     <span>ダークモード</span>
                                     <p className="text-xs text-gray-500">目に優しい暗い配色</p>
                                 </div>
-                                <button onClick={() => update(s => ({ dark: !s.dark }))} className={`w - 12 h - 6 rounded - full transition ${dark ? 'bg-purple-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${dark ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ dark: !s.dark }))} className={`w-12 h-6 rounded-full transition ${dark ? 'bg-purple-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             <div className="flex items-center justify-between mb-3">
@@ -1179,8 +1179,8 @@ export default function App() {
                                     <span>コンパクトモード</span>
                                     <p className="text-xs text-gray-500">項目カードを小さく</p>
                                 </div>
-                                <button onClick={() => update(s => ({ compactMode: !s.compactMode }))} className={`w - 12 h - 6 rounded - full transition ${store.compactMode ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.compactMode ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ compactMode: !s.compactMode }))} className={`w-12 h-6 rounded-full transition ${store.compactMode ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.compactMode ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             <div className="flex items-center justify-between mb-3">
@@ -1188,8 +1188,8 @@ export default function App() {
                                     <span>履歴に時間を表示</span>
                                     <p className="text-xs text-gray-500">生成日時を表示</p>
                                 </div>
-                                <button onClick={() => update(s => ({ showHistoryTime: !s.showHistoryTime }))} className={`w - 12 h - 6 rounded - full transition ${store.showHistoryTime ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.showHistoryTime ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ showHistoryTime: !s.showHistoryTime }))} className={`w-12 h-6 rounded-full transition ${store.showHistoryTime ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showHistoryTime ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             <div className="flex items-center justify-between mb-3">
@@ -1197,8 +1197,8 @@ export default function App() {
                                     <span>復元ボタンを表示</span>
                                     <p className="text-xs text-gray-500">履歴から復元可能に</p>
                                 </div>
-                                <button onClick={() => update(s => ({ showRestoreButton: !s.showRestoreButton }))} className={`w - 12 h - 6 rounded - full transition ${store.showRestoreButton ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.showRestoreButton ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ showRestoreButton: !s.showRestoreButton }))} className={`w-12 h-6 rounded-full transition ${store.showRestoreButton ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showRestoreButton ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             <div className="flex items-center justify-between">
@@ -1209,7 +1209,7 @@ export default function App() {
                                 <select
                                     value={store.resultFontSize}
                                     onChange={(e) => update(() => ({ resultFontSize: e.target.value }))}
-                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded - lg px - 2 py - 1 text - sm`}
+                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
                                 >
                                     <option value="small">小</option>
                                     <option value="normal">中</option>
@@ -1224,7 +1224,7 @@ export default function App() {
                                 <select
                                     value={store.mainResultFontSize}
                                     onChange={(e) => update(() => ({ mainResultFontSize: e.target.value }))}
-                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded - lg px - 2 py - 1 text - sm`}
+                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
                                 >
                                     <option value="small">小</option>
                                     <option value="normal">中</option>
@@ -1239,8 +1239,8 @@ export default function App() {
                                     <span>画像を自動リサイズ</span>
                                     <p className="text-xs text-gray-500">アップロード時に画像を縮小</p>
                                 </div>
-                                <button onClick={() => update(s => ({ resizeImages: !s.resizeImages }))} className={`w - 12 h - 6 rounded - full transition ${store.resizeImages ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.resizeImages ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ resizeImages: !s.resizeImages }))} className={`w-12 h-6 rounded-full transition ${store.resizeImages ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.resizeImages ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             {store.resizeImages && (
@@ -1249,7 +1249,7 @@ export default function App() {
                                         <span>最大サイズ</span>
                                         <p className="text-xs text-gray-500">リサイズ時の最大幅/高さ</p>
                                     </div>
-                                    <select value={store.maxImageSize} onChange={e => update(s => ({ maxImageSize: Number(e.target.value) }))} className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded - lg px - 2 py - 1 text - sm`}>
+                                    <select value={store.maxImageSize} onChange={e => update(s => ({ maxImageSize: Number(e.target.value) }))} className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}>
                                         <option value={300}>300px</option>
                                         <option value={500}>500px</option>
                                         <option value={800}>800px</option>
@@ -1271,7 +1271,7 @@ export default function App() {
                                     <span>結果の画像サイズ</span>
                                     <p className="text-xs text-gray-500">結果画面での画像の表示サイズ</p>
                                 </div>
-                                <select value={store.resultImageSize} onChange={e => update(s => ({ resultImageSize: Number(e.target.value) }))} className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded - lg px - 2 py - 1 text - sm`}>
+                                <select value={store.resultImageSize} onChange={e => update(s => ({ resultImageSize: Number(e.target.value) }))} className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}>
                                     <option value={20}>極小 (20px)</option>
                                     <option value={40}>小 (40px)</option>
                                     <option value={80}>中 (80px)</option>
@@ -1284,8 +1284,8 @@ export default function App() {
                                     <span>画像クリックで拡大</span>
                                     <p className="text-xs text-gray-500">結果の画像をタップで拡大表示</p>
                                 </div>
-                                <button onClick={() => update(s => ({ enableImageZoom: !s.enableImageZoom }))} className={`w - 12 h - 6 rounded - full transition ${store.enableImageZoom ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'} `}>
-                                    <div className={`w - 5 h - 5 bg - white rounded - full shadow transform transition ${store.enableImageZoom ? 'translate-x-6' : 'translate-x-1'} `} />
+                                <button onClick={() => update(s => ({ enableImageZoom: !s.enableImageZoom }))} className={`w-12 h-6 rounded-full transition ${store.enableImageZoom ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.enableImageZoom ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                         </div>
@@ -1294,12 +1294,7 @@ export default function App() {
                             <button onClick={doExportJSON} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>💾 JSONバックアップ (画像なし)</button>
                             <button onClick={doExportZip} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>🗄️ Zipバックアップ (画像含む)</button>
 
-                            <div className={`relative w-full mb-2`}>
-                                <button className={`w-full text-left p-2 rounded-lg ${btnCls}`}>📥 Zipを読み込む</button>
-                                <input type="file" accept=".zip" onChange={handleZipImport} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                            </div>
-
-                            <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>📋 テキストをインポート</button>
+                            <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>📥 インポート (テキスト/Zip)</button>
                             <button onClick={() => { setStore(INIT_DATA); toast('リセット完了'); }} className={`w-full text-left p-2 rounded-lg text-red-400 ${btnCls}`}>🗑️ 全データリセット</button>
                         </div>
                         <div className={cardCls + ' p-4'}>
@@ -1321,7 +1316,7 @@ export default function App() {
 
                     return (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2" onClick={() => setModal(null)}>
-                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded - 2xl p - 4 w - full max - w - md shadow - xl max - h - [90vh] overflow - auto`} onClick={e => e.stopPropagation()}>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-4 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
                                 <h3 className="text-base font-bold mb-3">項目を編集</h3>
                                 <div className="mb-2">
                                     <label className="block text-xs text-gray-500 mb-1">項目名</label>
@@ -1344,7 +1339,7 @@ export default function App() {
                                     <label className="block text-xs text-gray-500 mb-1">絵文字</label>
                                     <div className="flex flex-wrap gap-0.5">
                                         {emojiOptions.map(e => (
-                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w - 7 h - 7 text - base rounded ${tempEmoji === e ? 'bg-purple-600 ring-1 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'} `}>{e}</button>
+                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w-7 h-7 text-base rounded ${tempEmoji === e ? 'bg-purple-600 ring-1 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
                                         ))}
                                     </div>
                                 </div>
@@ -1352,14 +1347,14 @@ export default function App() {
                                     <label className="block text-xs text-gray-500 mb-1">色</label>
                                     <div className="flex flex-wrap gap-1">
                                         {colorOptions.map(c => (
-                                            <button key={c} onClick={() => setTempColor(c)} className={`w - 6 h - 6 rounded - full ${tempColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : ''} `} style={{ backgroundColor: c }} />
+                                            <button key={c} onClick={() => setTempColor(c)} className={`w-6 h-6 rounded-full ${tempColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : ''}`} style={{ backgroundColor: c }} />
                                         ))}
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-1 mb-3">
                                     <button onClick={toggleHidden} className={btnCls + ' text-xs py-1 px-2'}>{modal.hidden ? '👁 表示' : '🙈 非表示'}</button>
                                     <button onClick={dupCat} className={btnCls + ' text-xs py-1 px-2'}>📋 複製</button>
-                                    <button onClick={deleteCat} className={`${btnCls} text - red - 400 text - xs py - 1 px - 2`}>🗑️ 削除</button>
+                                    <button onClick={deleteCat} className={`${btnCls} text-red-400 text-xs py-1 px-2`}>🗑️ 削除</button>
                                 </div>
                                 <div className="flex justify-end gap-2">
                                     <button onClick={() => setModal(null)} className={btnCls + ' text-xs py-1'}>キャンセル</button>
@@ -1372,10 +1367,27 @@ export default function App() {
 
                 {modal?.type === 'import' && (
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
-                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded - 2xl p - 5 w - full max - w - md shadow - xl`} onClick={e => e.stopPropagation()}>
+                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl`} onClick={e => e.stopPropagation()}>
                             <h3 className="text-lg font-bold mb-4">インポート</h3>
-                            <p className="text-sm text-gray-500 mb-2">テキスト形式またはJSON</p>
-                            <textarea value={tempImport} onChange={e => setTempImport(e.target.value)} rows={8} placeholder={"[項目1]\n候補A\n候補B\n\n[項目2]\n候補X\n候補Y"} className={inputCls + ' resize-none font-mono text-sm mb-3'} spellCheck={false} />
+                            <p className="text-sm text-gray-500 mb-2">テキスト形式またはJSON/Zip</p>
+
+                            <div className="mb-4">
+                                <label className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed transition cursor-pointer ${dark ? 'bg-slate-800 border-slate-600 hover:bg-slate-700' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'}`}>
+                                    <span className="text-2xl">📦</span>
+                                    <div className="text-center">
+                                        <span className="font-medium text-sm">Zipファイルを読み込む</span>
+                                        <p className="text-xs text-gray-500 mt-0.5">画像付きバックアップ</p>
+                                    </div>
+                                    <input type="file" accept=".zip" onChange={(e) => {
+                                        handleZipImport(e);
+                                        setModal(null);
+                                    }} className="hidden" />
+                                </label>
+                            </div>
+
+                            <p className="text-xs text-gray-500 mb-1">またはテキスト/JSONを貼り付け:</p>
+                            <textarea value={tempImport} onChange={e => setTempImport(e.target.value)} rows={5} placeholder={"[項目1]\n候補A\n候補B..."} className={inputCls + ' resize-none font-mono text-sm mb-3'} spellCheck={false} />
+
                             <div className="flex justify-end gap-2">
                                 <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
                                 <button onClick={doImport} className="px-4 py-2 bg-purple-600 text-white rounded-lg">インポート</button>
@@ -1553,7 +1565,7 @@ export default function App() {
 
                     return (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded - 2xl p - 5 w - full max - w - md shadow - xl max - h - [80vh] flex flex - col relative`}>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`}>
                                 <h3 className="text-lg font-bold mb-2">「{cat.name}」の編集</h3>
                                 <p className="text-sm text-gray-500 mb-3">候補の編集・サブ項目の追加ができます</p>
                                 <div className="overflow-y-auto flex-1 space-y-2">
@@ -1567,7 +1579,7 @@ export default function App() {
                                         const subItems = item.subItems || [];
 
                                         return (
-                                            <div key={idx} className={`rounded - lg p - 2 ${isLocked ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''} ${dark ? 'bg-slate-800/50' : 'bg-gray-50'} `}>
+                                            <div key={idx} className={`rounded-lg p-2 ${isLocked ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''} ${dark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
                                                 <div className="flex items-center gap-2">
                                                     <div className="flex flex-col flex-1 min-w-0">
                                                         <div className="flex items-center gap-1">
@@ -1583,7 +1595,7 @@ export default function App() {
                                                                         )
                                                                     }));
                                                                 }}
-                                                                className={`bg - transparent border - b border - gray - 300 focus: border - purple - 500 outline - none px - 1 py - 1 transition flex - 1 text - sm ${dark ? 'border-gray-600' : ''} `}
+                                                                className={`bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition flex-1 text-sm ${dark ? 'border-gray-600' : ''}`}
                                                             />
                                                             {subItems.length > 0 && (
                                                                 <span className="text-xs text-gray-500">({subItems.length})</span>
@@ -1592,23 +1604,23 @@ export default function App() {
                                                         {store.showWeightIndicator && (
                                                             <div className="flex items-center gap-1 mt-1">
                                                                 <span className="text-xs text-gray-500">重み:</span>
-                                                                <button onClick={() => updateWeight(itemName, -1)} className={`px - 2 py - 0.5 text - xs rounded ${dark ? 'bg-gray-700' : 'bg-gray-200'} hover: opacity - 80`}>-</button>
-                                                                <span className={`text - xs font - bold w - 4 text - center ${w === 0 ? 'text-red-400' : ''} `}>{w}</span>
-                                                                <button onClick={() => updateWeight(itemName, 1)} className={`px - 2 py - 0.5 text - xs rounded ${dark ? 'bg-gray-700' : 'bg-gray-200'} hover: opacity - 80`}>+</button>
+                                                                <button onClick={() => updateWeight(itemName, -1)} className={`px-2 py-0.5 text-xs rounded ${dark ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}>-</button>
+                                                                <span className={`text-xs font-bold w-4 text-center ${w === 0 ? 'text-red-400' : ''}`}>{w}</span>
+                                                                <button onClick={() => updateWeight(itemName, 1)} className={`px-2 py-0.5 text-xs rounded ${dark ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}>+</button>
                                                             </div>
                                                         )}
                                                     </div>
                                                     <div className="flex shrink-0 gap-1">
                                                         <button
                                                             onClick={() => setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                                                            className={`p - 1 rounded text - xs ${isExpanded ? 'bg-purple-500/30 text-purple-400' : 'text-gray-400'} `}
+                                                            className={`p-1 rounded text-xs ${isExpanded ? 'bg-purple-500/30 text-purple-400' : 'text-gray-400'}`}
                                                             title="サブ項目"
                                                         >
                                                             {isExpanded ? '▼' : '▶'}
                                                         </button>
                                                         <button
                                                             onClick={() => toggleSubItems(idx)}
-                                                            className={`p - 1 rounded text - xs ${hasSubItemsEnabled ? 'bg-green-500/30 text-green-400' : 'text-gray-400'} `}
+                                                            className={`p-1 rounded text-xs ${hasSubItemsEnabled ? 'bg-green-500/30 text-green-400' : 'text-gray-400'}`}
                                                             title={hasSubItemsEnabled ? 'サブ項目オン' : 'サブ項目オフ'}
                                                         >
                                                             {hasSubItemsEnabled ? '✓' : '○'}
@@ -1620,7 +1632,7 @@ export default function App() {
                                                                     locked: { ...s.locked, [cat.id]: true }
                                                                 }));
                                                             }}
-                                                            className={`p - 1 rounded text - xs ${isLocked ? 'text-purple-500' : 'text-gray-400'} `}
+                                                            className={`p-1 rounded text-xs ${isLocked ? 'text-purple-500' : 'text-gray-400'}`}
                                                             title="固定"
                                                         >
                                                             {isLocked ? '🔒' : '🔓'}
@@ -1641,7 +1653,7 @@ export default function App() {
 
                                                 {/* Sub-items section */}
                                                 {isExpanded && (
-                                                    <div className={`mt - 2 pl - 3 border - l - 2 ${dark ? 'border-gray-700' : 'border-gray-200'} `}>
+                                                    <div className={`mt-2 pl-3 border-l-2 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                                                         {/* Image upload section */}
                                                         <div className="mb-3">
                                                             <span className="text-xs text-gray-500 block mb-1">画像</span>
@@ -1662,7 +1674,7 @@ export default function App() {
                                                                 </div>
                                                             ) : (
                                                                 <label
-                                                                    className={`inline - flex flex - col items - center gap - 1 text - xs px - 3 py - 2 rounded cursor - pointer border - 2 border - dashed transition ${dark ? 'bg-slate-700 hover:bg-slate-600 border-slate-500' : 'bg-gray-200 hover:bg-gray-300 border-gray-400'} `}
+                                                                    className={`inline-flex flex-col items-center gap-1 text-xs px-3 py-2 rounded cursor-pointer border-2 border-dashed transition ${dark ? 'bg-slate-700 hover:bg-slate-600 border-slate-500' : 'bg-gray-200 hover:bg-gray-300 border-gray-400'}`}
                                                                     onDragOver={(e) => {
                                                                         e.preventDefault();
                                                                         e.currentTarget.classList.add('ring-2', 'ring-purple-500');
@@ -1701,7 +1713,7 @@ export default function App() {
                                                             <span className="text-xs text-gray-500">サブ項目</span>
                                                             <button
                                                                 onClick={() => toggleSubItems(idx)}
-                                                                className={`text - xs px - 2 py - 0.5 rounded ${hasSubItemsEnabled ? 'bg-green-500 text-white' : dark ? 'bg-gray-700' : 'bg-gray-200'} `}
+                                                                className={`text-xs px-2 py-0.5 rounded ${hasSubItemsEnabled ? 'bg-green-500 text-white' : dark ? 'bg-gray-700' : 'bg-gray-200'}`}
                                                             >
                                                                 {hasSubItemsEnabled ? 'オン' : 'オフ'}
                                                             </button>
@@ -1748,7 +1760,7 @@ export default function App() {
                                                                                 type="text"
                                                                                 value={subItemName}
                                                                                 onChange={(e) => updateSubItem(idx, subIdx, e.target.value)}
-                                                                                className={`flex - 1 bg - transparent border - b text - xs px - 1 py - 0.5 ${dark ? 'border-gray-600' : 'border-gray-300'} focus: border - purple - 500 outline - none`}
+                                                                                className={`flex-1 bg-transparent border-b text-xs px-1 py-0.5 ${dark ? 'border-gray-600' : 'border-gray-300'} focus:border-purple-500 outline-none`}
                                                                             />
                                                                             <button
                                                                                 onClick={() => removeSubItem(idx, subIdx)}
@@ -1768,7 +1780,7 @@ export default function App() {
                                                                                     >✕</button>
                                                                                 </div>
                                                                             ) : (
-                                                                                <label className={`text - [10px] px - 1 py - 0.5 rounded cursor - pointer ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'} `}>
+                                                                                <label className={`text-[10px] px-1 py-0.5 rounded cursor-pointer ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>
                                                                                     📷
                                                                                     <input
                                                                                         type="file"
@@ -1791,7 +1803,7 @@ export default function App() {
                                                             <input
                                                                 type="text"
                                                                 placeholder="サブ項目を追加..."
-                                                                className={`flex - 1 text - xs px - 2 py - 1 rounded ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'} border`}
+                                                                className={`flex-1 text-xs px-2 py-1 rounded ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'} border`}
                                                                 onKeyDown={(e) => {
                                                                     if (e.key === 'Enter' && e.target.value.trim()) {
                                                                         addSubItem(idx, e.target.value);
@@ -1835,7 +1847,7 @@ export default function App() {
                                             }
                                         }}
                                         placeholder="新しい候補を追加..."
-                                        className={`flex - 1 ${inputCls} `}
+                                        className={`flex-1 ${inputCls}`}
                                     />
                                     <button
                                         onClick={() => {
@@ -1857,7 +1869,7 @@ export default function App() {
 
                                 {/* Bulk image upload section */}
                                 <label
-                                    className={`mt - 3 flex flex - col items - center gap - 1 p - 3 rounded - lg border - 2 border - dashed cursor - pointer transition ${dark ? 'bg-slate-800/50 border-slate-500 hover:bg-slate-700/50' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'} `}
+                                    className={`mt-3 flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-dashed cursor-pointer transition ${dark ? 'bg-slate-800/50 border-slate-500 hover:bg-slate-700/50' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'}`}
                                     onDragOver={(e) => {
                                         e.preventDefault();
                                         e.currentTarget.classList.add('ring-2', 'ring-purple-500');
@@ -1900,7 +1912,7 @@ export default function App() {
                                             setSelectModal(null);
                                             toast('選択を解除しました');
                                         }}
-                                        className={`text - sm ${btnCls} text - red - 400`}
+                                        className={`text-sm ${btnCls} text-red-400`}
                                     >
                                         🔓 選択解除
                                     </button>
