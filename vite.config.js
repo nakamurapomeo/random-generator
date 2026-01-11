@@ -16,22 +16,22 @@ export default defineConfig({
                 background_color: '#0f172a',
                 display: 'fullscreen',
                 orientation: 'portrait',
-                start_url: '/random-generator/',
-                scope: '/random-generator/',
-                id: '/random-generator/',
+                start_url: '/',
+                scope: '/',
+                id: '/',
                 icons: [
                     {
-                        src: '/random-generator/icon-192.png',
+                        src: '/icon-192.png',
                         sizes: '192x192',
                         type: 'image/png'
                     },
                     {
-                        src: '/random-generator/icon-512.png',
+                        src: '/icon-512.png',
                         sizes: '512x512',
                         type: 'image/png'
                     },
                     {
-                        src: '/random-generator/icon-512.png',
+                        src: '/icon-512.png',
                         sizes: '512x512',
                         type: 'image/png',
                         purpose: 'maskable'
@@ -59,5 +59,5 @@ export default defineConfig({
             }
         })
     ],
-    base: '/random-generator/'
+    base: '/'
 })
