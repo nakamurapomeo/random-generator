@@ -41,14 +41,28 @@ const INIT_DATA = {
     enableImageZoom: true,   // Enable click-to-zoom for result images
 };
 
+// Normalize sub-item to new format (migrate from string to object)
+const normalizeSubItem = (subItem) => {
+    if (typeof subItem === 'string') {
+        return { name: subItem, imageId: null };
+    }
+    return {
+        name: subItem.name || '',
+        imageId: subItem.imageId || null
+    };
+};
+
+// Get sub-item name (works with both old string format and new object format)
+const getSubItemName = (subItem) => typeof subItem === 'string' ? subItem : subItem.name;
+
 // Normalize item to new format (migrate from string to object)
 const normalizeItem = (item) => {
     if (typeof item === 'string') {
-        return { name: item, subItems: [], hasSubItems: false };
+        return { name: item, subItems: [], hasSubItems: false, imageId: null };
     }
     return {
         name: item.name || '',
-        subItems: item.subItems || [],
+        subItems: (item.subItems || []).map(normalizeSubItem),
         hasSubItems: item.hasSubItems ?? false,
         imageId: item.imageId || null
     };
@@ -392,7 +406,7 @@ export default function App() {
                         // Check if selected item has sub-items enabled
                         if (selectedItem.hasSubItems && selectedItem.subItems && selectedItem.subItems.length > 0) {
                             const subItem = selectedItem.subItems[Math.floor(Math.random() * selectedItem.subItems.length)];
-                            newRes[c.id] = `${selectedItem.name} → ${subItem}`;
+                            newRes[c.id] = `${selectedItem.name} → ${getSubItemName(subItem)}`;
                         } else {
                             newRes[c.id] = selectedItem.name;
                         }
@@ -576,7 +590,73 @@ export default function App() {
         toast('バックアップを保存・コピーしました');
     };
 
-    const doImport = () => {
+    // Export with images - includes all image data as Base64
+    const doExportWithImages = async () => {
+        try {
+            // Collect all image IDs from items and sub-items
+            const imageIds = new Set();
+            store.cats.forEach(cat => {
+                cat.items.forEach(item => {
+                    if (item.imageId) imageIds.add(item.imageId);
+                    if (item.subItems) {
+                        item.subItems.forEach(sub => {
+                            if (typeof sub === 'object' && sub.imageId) {
+                                imageIds.add(sub.imageId);
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Get all images from cache
+            const images = {};
+            for (const id of imageIds) {
+                if (imageCache[id]) {
+                    images[id] = imageCache[id];
+                }
+            }
+
+            const exportData = {
+                cats: store.cats,
+                presets: store.presets,
+                results: store.results,
+                locked: store.locked,
+                favs: store.favs,
+                images: images, // Include image data
+                settings: {
+                    dark: store.dark,
+                    noRepeat: store.noRepeat,
+                    showHidden: store.showHidden,
+                    showAnimation: store.showAnimation,
+                    showWeightIndicator: store.showWeightIndicator,
+                    compactMode: store.compactMode,
+                    showHistoryTime: store.showHistoryTime,
+                    showRestoreButton: store.showRestoreButton,
+                    resultFontSize: store.resultFontSize,
+                    mainResultFontSize: store.mainResultFontSize,
+                    resizeImages: store.resizeImages,
+                    maxImageSize: store.maxImageSize,
+                    enableImageZoom: store.enableImageZoom
+                }
+            };
+            const str = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([str], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'randgen-backup-with-images.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast(`バックアップを保存しました (画像${Object.keys(images).length}件含む)`);
+        } catch (err) {
+            console.error('Failed to export with images:', err);
+            toast('エクスポートに失敗しました');
+        }
+    };
+
+    const doImport = async () => {
         const txt = tempImport.trim();
         if (!txt) return;
         try {
@@ -585,9 +665,33 @@ export default function App() {
                 // Apply migration to imported cats
                 const migratedCats = json.cats.map(c => migrateCatItems({ ...c, hidden: c.hidden || false }));
                 update(() => ({ cats: migratedCats, presets: json.presets || store.presets }));
+
+                // Import images if present
+                if (json.images && typeof json.images === 'object') {
+                    const imageEntries = Object.entries(json.images);
+                    let imported = 0;
+                    for (const [imageId, base64Data] of imageEntries) {
+                        try {
+                            await saveImage(imageId, base64Data);
+                            imported++;
+                        } catch (e) {
+                            console.error('Failed to import image:', imageId, e);
+                        }
+                    }
+                    // Refresh image cache
+                    const allImages = await getAllImages();
+                    setImageCache(allImages);
+                    if (imported > 0) {
+                        toast(`インポート完了 (画像${imported}件)`);
+                    } else {
+                        toast('インポート完了');
+                    }
+                } else {
+                    toast('インポート完了');
+                }
+
                 setModal(null);
                 setTempImport('');
-                toast('インポート完了');
                 return;
             }
         } catch { }
@@ -753,23 +857,43 @@ export default function App() {
                                             const resultText = store.results[cat.id] || '';
                                             if (!resultText) return <span className="text-gray-500 text-xs">---</span>;
 
-                                            // Find the item to check if it has an image
-                                            const mainItemName = resultText.split(' → ')[0];
+                                            // Parse result to get main item and sub-item names
+                                            const parts = resultText.split(' → ');
+                                            const mainItemName = parts[0];
+                                            const subItemName = parts[1] || null;
+
+                                            // Find the main item
                                             const item = cat.items.find(i => getItemName(i) === mainItemName);
-                                            const imgId = item?.imageId;
-                                            const imgSrc = imgId && imageCache[imgId];
+
+                                            // Determine which image to show (sub-item image takes priority)
+                                            let imgSrc = null;
+                                            let imgAlt = mainItemName;
+
+                                            if (subItemName && item?.subItems) {
+                                                const subItem = item.subItems.find(s => getSubItemName(s) === subItemName);
+                                                const subImgId = typeof subItem === 'object' ? subItem?.imageId : null;
+                                                if (subImgId && imageCache[subImgId]) {
+                                                    imgSrc = imageCache[subImgId];
+                                                    imgAlt = subItemName;
+                                                }
+                                            }
+
+                                            // If no sub-item image, use main item image
+                                            if (!imgSrc && item?.imageId && imageCache[item.imageId]) {
+                                                imgSrc = imageCache[item.imageId];
+                                            }
 
                                             return (
                                                 <>
                                                     {imgSrc && (
                                                         <img
                                                             src={imgSrc}
-                                                            alt={mainItemName}
+                                                            alt={imgAlt}
                                                             className={`h-[40px] w-[40px] rounded object-cover shrink-0 ${store.enableImageZoom ? 'cursor-zoom-in hover:opacity-80' : ''}`}
                                                             onClick={(e) => {
                                                                 if (store.enableImageZoom) {
                                                                     e.stopPropagation();
-                                                                    setZoomImage({ src: imgSrc, alt: mainItemName });
+                                                                    setZoomImage({ src: imgSrc, alt: imgAlt });
                                                                 }
                                                             }}
                                                         />
@@ -1066,6 +1190,7 @@ export default function App() {
                         <div className={cardCls + ' p-4'}>
                             <h3 className="font-semibold mb-3">データ</h3>
                             <button onClick={doExportJSON} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>💾 JSONバックアップ</button>
+                            <button onClick={doExportWithImages} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>🖼️ 画像付きエクスポート</button>
                             <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>📥 インポート</button>
                             <button onClick={() => { setStore(INIT_DATA); toast('リセット完了'); }} className={`w-full text-left p-2 rounded-lg text-red-400 ${btnCls}`}>🗑️ 全データリセット</button>
                         </div>
@@ -1185,7 +1310,7 @@ export default function App() {
                             cats: s.cats.map(c => c.id === cat.id
                                 ? {
                                     ...c, items: c.items.map((item, i) => i === idx
-                                        ? { ...item, subItems: [...(item.subItems || []), subItemName.trim()] }
+                                        ? { ...item, subItems: [...(item.subItems || []), { name: subItemName.trim(), imageId: null }] }
                                         : item)
                                 }
                                 : c
@@ -1211,12 +1336,92 @@ export default function App() {
                             cats: s.cats.map(c => c.id === cat.id
                                 ? {
                                     ...c, items: c.items.map((item, i) => i === itemIdx
-                                        ? { ...item, subItems: item.subItems.map((sub, si) => si === subItemIdx ? newValue : sub) }
+                                        ? {
+                                            ...item, subItems: item.subItems.map((sub, si) => si === subItemIdx
+                                                ? { ...normalizeSubItem(sub), name: newValue }
+                                                : sub)
+                                        }
                                         : item)
                                 }
                                 : c
                             )
                         }));
+                    };
+
+                    // Handle sub-item image upload
+                    const handleSubImageUpload = async (itemIdx, subItemIdx, file) => {
+                        try {
+                            const item = cat.items[itemIdx];
+                            const subItem = item.subItems[subItemIdx];
+                            const subItemName = getSubItemName(subItem);
+                            const imageId = generateImageId(cat.id, `${getItemName(item)}_sub_${subItemName}`);
+                            let base64Data;
+
+                            if (store.resizeImages) {
+                                base64Data = await resizeImage(file, store.maxImageSize);
+                            } else {
+                                base64Data = await readImageAsBase64(file);
+                            }
+
+                            await saveImage(imageId, base64Data);
+                            setImageCache(prev => ({ ...prev, [imageId]: base64Data }));
+
+                            update(s => ({
+                                cats: s.cats.map(c => c.id === cat.id
+                                    ? {
+                                        ...c, items: c.items.map((it, i) => i === itemIdx
+                                            ? {
+                                                ...it, subItems: it.subItems.map((sub, si) => si === subItemIdx
+                                                    ? { ...normalizeSubItem(sub), imageId }
+                                                    : sub)
+                                            }
+                                            : it)
+                                    }
+                                    : c
+                                )
+                            }));
+
+                            toast('画像を保存しました');
+                        } catch (err) {
+                            console.error('Failed to upload sub-item image:', err);
+                            toast('画像の保存に失敗しました');
+                        }
+                    };
+
+                    // Delete sub-item image
+                    const handleSubImageDelete = async (itemIdx, subItemIdx) => {
+                        try {
+                            const item = cat.items[itemIdx];
+                            const subItem = item.subItems[subItemIdx];
+                            const subItemName = getSubItemName(subItem);
+                            const imageId = generateImageId(cat.id, `${getItemName(item)}_sub_${subItemName}`);
+                            await deleteImage(imageId);
+                            setImageCache(prev => {
+                                const newCache = { ...prev };
+                                delete newCache[imageId];
+                                return newCache;
+                            });
+
+                            update(s => ({
+                                cats: s.cats.map(c => c.id === cat.id
+                                    ? {
+                                        ...c, items: c.items.map((it, i) => i === itemIdx
+                                            ? {
+                                                ...it, subItems: it.subItems.map((sub, si) => si === subItemIdx
+                                                    ? { ...normalizeSubItem(sub), imageId: null }
+                                                    : sub)
+                                            }
+                                            : it)
+                                    }
+                                    : c
+                                )
+                            }));
+
+                            toast('画像を削除しました');
+                        } catch (err) {
+                            console.error('Failed to delete sub-item image:', err);
+                            toast('画像の削除に失敗しました');
+                        }
                     };
 
                     return (
@@ -1376,23 +1581,59 @@ export default function App() {
                                                                 {hasSubItemsEnabled ? 'オン' : 'オフ'}
                                                             </button>
                                                         </div>
-                                                        {subItems.map((subItem, subIdx) => (
-                                                            <div key={subIdx} className="flex items-center gap-1 mb-1">
-                                                                <span className="text-gray-400 text-xs">└</span>
-                                                                <input
-                                                                    type="text"
-                                                                    value={subItem}
-                                                                    onChange={(e) => updateSubItem(idx, subIdx, e.target.value)}
-                                                                    className={`flex-1 bg-transparent border-b text-xs px-1 py-0.5 ${dark ? 'border-gray-600' : 'border-gray-300'} focus:border-purple-500 outline-none`}
-                                                                />
-                                                                <button
-                                                                    onClick={() => removeSubItem(idx, subIdx)}
-                                                                    className="text-red-400 text-xs p-0.5"
-                                                                >
-                                                                    ✕
-                                                                </button>
-                                                            </div>
-                                                        ))}
+                                                        {subItems.map((subItem, subIdx) => {
+                                                            const subItemName = getSubItemName(subItem);
+                                                            const subImageId = typeof subItem === 'object' ? subItem.imageId : null;
+                                                            const subImgSrc = subImageId && imageCache[subImageId];
+
+                                                            return (
+                                                                <div key={subIdx} className="flex items-start gap-1 mb-2">
+                                                                    <span className="text-gray-400 text-xs mt-1">└</span>
+                                                                    <div className="flex-1">
+                                                                        <div className="flex items-center gap-1">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={subItemName}
+                                                                                onChange={(e) => updateSubItem(idx, subIdx, e.target.value)}
+                                                                                className={`flex-1 bg-transparent border-b text-xs px-1 py-0.5 ${dark ? 'border-gray-600' : 'border-gray-300'} focus:border-purple-500 outline-none`}
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => removeSubItem(idx, subIdx)}
+                                                                                className="text-red-400 text-xs p-0.5"
+                                                                            >
+                                                                                ✕
+                                                                            </button>
+                                                                        </div>
+                                                                        {/* Sub-item image */}
+                                                                        <div className="mt-1 flex items-center gap-2">
+                                                                            {subImgSrc ? (
+                                                                                <div className="relative inline-block">
+                                                                                    <img src={subImgSrc} alt={subItemName} className="h-8 w-8 rounded object-cover" />
+                                                                                    <button
+                                                                                        onClick={() => handleSubImageDelete(idx, subIdx)}
+                                                                                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 text-[8px] flex items-center justify-center"
+                                                                                    >✕</button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <label className={`text-[10px] px-1 py-0.5 rounded cursor-pointer ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>
+                                                                                    📷
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        accept="image/*"
+                                                                                        className="hidden"
+                                                                                        onChange={(e) => {
+                                                                                            const file = e.target.files[0];
+                                                                                            if (file) handleSubImageUpload(idx, subIdx, file);
+                                                                                            e.target.value = '';
+                                                                                        }}
+                                                                                    />
+                                                                                </label>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                         <div className="flex gap-1 mt-1">
                                                             <input
                                                                 type="text"
