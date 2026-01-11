@@ -38,6 +38,7 @@ const INIT_DATA = {
     showHiddenControl: true, // Default to true so restored weights are visible
     resizeImages: true,      // Auto-resize uploaded images
     maxImageSize: 500,       // Max dimension for resized images (px)
+    enableImageZoom: true,   // Enable click-to-zoom for result images
 };
 
 // Normalize item to new format (migrate from string to object)
@@ -131,6 +132,7 @@ export default function App() {
     const [itemMenu, setItemMenu] = useState(null);
     const [expandedItems, setExpandedItems] = useState({});
     const [imageCache, setImageCache] = useState({});
+    const [zoomImage, setZoomImage] = useState(null); // { src, alt } for zoomed image modal
     const dragNode = useRef(null);
     const longPressTimer = useRef(null);
     const isLongPress = useRef(false);
@@ -670,8 +672,13 @@ export default function App() {
                                         </div>
                                     </div>
                                     <div
-                                        onClick={() => cat.items.length > 0 && setSelectModal({ cat })}
-                                        className={`min-h-[36px] flex flex-col items-center justify-center rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text-sm`}
+                                        onClick={(e) => {
+                                            // Only open modal if clicked area is not an image
+                                            if (e.target.tagName !== 'IMG' && cat.items.length > 0) {
+                                                setSelectModal({ cat });
+                                            }
+                                        }}
+                                        className={`min-h-[36px] flex items-center gap-2 rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text-sm`}
                                         title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
                                     >
                                         {(() => {
@@ -690,10 +697,16 @@ export default function App() {
                                                         <img
                                                             src={imgSrc}
                                                             alt={mainItemName}
-                                                            className="max-h-[60px] max-w-full rounded mb-1 object-contain"
+                                                            className={`h-[40px] w-[40px] rounded object-cover shrink-0 ${store.enableImageZoom ? 'cursor-zoom-in hover:opacity-80' : ''}`}
+                                                            onClick={(e) => {
+                                                                if (store.enableImageZoom) {
+                                                                    e.stopPropagation();
+                                                                    setZoomImage({ src: imgSrc, alt: mainItemName });
+                                                                }
+                                                            }}
                                                         />
                                                     )}
-                                                    {resultText && <span>{resultText}</span>}
+                                                    <span className="flex-1">{resultText}</span>
                                                 </>
                                             );
                                         })()}
@@ -955,7 +968,7 @@ export default function App() {
                                 </button>
                             </div>
                             {store.resizeImages && (
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between mb-3">
                                     <div>
                                         <span>最大サイズ</span>
                                         <p className="text-xs text-gray-500">リサイズ時の最大幅/高さ</p>
@@ -972,6 +985,15 @@ export default function App() {
                                     </select>
                                 </div>
                             )}
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span>画像クリックで拡大</span>
+                                    <p className="text-xs text-gray-500">結果の画像をタップで拡大表示</p>
+                                </div>
+                                <button onClick={() => update(s => ({ enableImageZoom: !s.enableImageZoom }))} className={`w-12 h-6 rounded-full transition ${store.enableImageZoom ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.enableImageZoom ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
                         </div>
                         <div className={cardCls + ' p-4'}>
                             <h3 className="font-semibold mb-3">データ</h3>
@@ -1241,8 +1263,26 @@ export default function App() {
                                                                     </button>
                                                                 </div>
                                                             ) : (
-                                                                <label className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>
+                                                                <label
+                                                                    className={`inline-flex flex-col items-center gap-1 text-xs px-3 py-2 rounded cursor-pointer border-2 border-dashed transition ${dark ? 'bg-slate-700 hover:bg-slate-600 border-slate-500' : 'bg-gray-200 hover:bg-gray-300 border-gray-400'}`}
+                                                                    onDragOver={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.currentTarget.classList.add('ring-2', 'ring-purple-500');
+                                                                    }}
+                                                                    onDragLeave={(e) => {
+                                                                        e.currentTarget.classList.remove('ring-2', 'ring-purple-500');
+                                                                    }}
+                                                                    onDrop={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.currentTarget.classList.remove('ring-2', 'ring-purple-500');
+                                                                        const file = e.dataTransfer.files[0];
+                                                                        if (file && file.type.startsWith('image/')) {
+                                                                            handleImageUpload(cat.id, itemName, file);
+                                                                        }
+                                                                    }}
+                                                                >
                                                                     <span>📷 画像を追加</span>
+                                                                    <span className="text-[10px] text-gray-400">クリックまたはドラッグ&ドロップ</span>
                                                                     <input
                                                                         type="file"
                                                                         accept="image/*"
@@ -1374,6 +1414,31 @@ export default function App() {
                 })()}
 
                 <div className="text-center text-xs text-gray-500 mt-6">ストレージ: {storageSize()}</div>
+
+                {/* Image zoom modal */}
+                {zoomImage && (
+                    <div
+                        className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4"
+                        onClick={() => setZoomImage(null)}
+                    >
+                        <div className="relative max-w-full max-h-full">
+                            <img
+                                src={zoomImage.src}
+                                alt={zoomImage.alt}
+                                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                            />
+                            <button
+                                onClick={() => setZoomImage(null)}
+                                className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-black/70"
+                            >
+                                ✕
+                            </button>
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded">
+                                {zoomImage.alt}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div >
     );
