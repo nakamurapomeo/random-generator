@@ -105,35 +105,45 @@ export const getAllImages = async () => {
  * Resize an image to the specified max dimension
  * @param {File} file - The image file to resize
  * @param {number} maxSize - Maximum width/height in pixels
+ * @param {boolean} keepAspectRatio - If true, keep original aspect ratio; if false, crop to 1:1
  * @returns {Promise<string>} - Base64 encoded resized image
  */
-export const resizeImage = (file, maxSize = 500) => {
+export const resizeImage = (file, maxSize = 500, keepAspectRatio = true) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
                 let { width, height } = img;
-
-                // Calculate new dimensions
-                if (width > height) {
-                    if (width > maxSize) {
-                        height = Math.round((height * maxSize) / width);
-                        width = maxSize;
-                    }
-                } else {
-                    if (height > maxSize) {
-                        width = Math.round((width * maxSize) / height);
-                        height = maxSize;
-                    }
-                }
-
-                // Create canvas and draw resized image
                 const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+
+                if (keepAspectRatio) {
+                    // Calculate new dimensions keeping aspect ratio
+                    if (width > height) {
+                        if (width > maxSize) {
+                            height = Math.round((height * maxSize) / width);
+                            width = maxSize;
+                        }
+                    } else {
+                        if (height > maxSize) {
+                            width = Math.round((width * maxSize) / height);
+                            height = maxSize;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                } else {
+                    // Crop to 1:1 square (center crop)
+                    const size = Math.min(width, height);
+                    const sx = (width - size) / 2;
+                    const sy = (height - size) / 2;
+                    const targetSize = Math.min(size, maxSize);
+                    canvas.width = targetSize;
+                    canvas.height = targetSize;
+                    ctx.drawImage(img, sx, sy, size, size, 0, 0, targetSize, targetSize);
+                }
 
                 // Convert to base64 (JPEG for better compression)
                 const base64 = canvas.toDataURL('image/jpeg', 0.85);
