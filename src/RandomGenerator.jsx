@@ -1001,11 +1001,12 @@ export default function RandomGenerator({ onSwitchApp }) {
                                                     imgStyle = { width: '100%', height: '200px', objectFit: imageStyle, maxHeight: '400px' };
                                                 }
                                             } else {
-                                                // Normal mode
+                                                // Normal mode - square with full image (contain, not crop)
                                                 imgStyle = {
                                                     width: customSize,
                                                     height: customSize,
-                                                    objectFit: 'cover'
+                                                    objectFit: 'contain',
+                                                    backgroundColor: dark ? '#00000040' : '#f3f4f6'
                                                 };
                                             }
 
