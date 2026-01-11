@@ -1304,6 +1304,25 @@ export default function App() {
                         }));
                     };
 
+                    // Reorder sub-items via drag and drop
+                    const reorderSubItem = (itemIdx, fromIdx, toIdx) => {
+                        if (fromIdx === toIdx) return;
+                        update(s => ({
+                            cats: s.cats.map(c => c.id === cat.id
+                                ? {
+                                    ...c, items: c.items.map((item, i) => {
+                                        if (i !== itemIdx) return item;
+                                        const newSubItems = [...item.subItems];
+                                        const [moved] = newSubItems.splice(fromIdx, 1);
+                                        newSubItems.splice(toIdx, 0, moved);
+                                        return { ...item, subItems: newSubItems };
+                                    })
+                                }
+                                : c
+                            )
+                        }));
+                    };
+
                     const addSubItem = (idx, subItemName) => {
                         if (!subItemName.trim()) return;
                         update(s => ({
@@ -1587,8 +1606,36 @@ export default function App() {
                                                             const subImgSrc = subImageId && imageCache[subImageId];
 
                                                             return (
-                                                                <div key={subIdx} className="flex items-start gap-1 mb-2">
-                                                                    <span className="text-gray-400 text-xs mt-1">└</span>
+                                                                <div
+                                                                    key={subIdx}
+                                                                    className="flex items-start gap-1 mb-2"
+                                                                    draggable
+                                                                    onDragStart={(e) => {
+                                                                        e.dataTransfer.setData('subItemIdx', subIdx.toString());
+                                                                        e.dataTransfer.setData('itemIdx', idx.toString());
+                                                                        e.currentTarget.classList.add('opacity-50');
+                                                                    }}
+                                                                    onDragEnd={(e) => {
+                                                                        e.currentTarget.classList.remove('opacity-50');
+                                                                    }}
+                                                                    onDragOver={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.currentTarget.classList.add('ring-1', 'ring-purple-500', 'rounded');
+                                                                    }}
+                                                                    onDragLeave={(e) => {
+                                                                        e.currentTarget.classList.remove('ring-1', 'ring-purple-500', 'rounded');
+                                                                    }}
+                                                                    onDrop={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.currentTarget.classList.remove('ring-1', 'ring-purple-500', 'rounded');
+                                                                        const fromIdx = parseInt(e.dataTransfer.getData('subItemIdx'));
+                                                                        const fromItemIdx = parseInt(e.dataTransfer.getData('itemIdx'));
+                                                                        if (fromItemIdx === idx && !isNaN(fromIdx)) {
+                                                                            reorderSubItem(idx, fromIdx, subIdx);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <span className="text-gray-400 text-xs mt-1 cursor-move" title="ドラッグで並び替え">⋮⋮</span>
                                                                     <div className="flex-1">
                                                                         <div className="flex items-center gap-1">
                                                                             <input
