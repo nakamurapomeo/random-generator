@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { saveImage, getImage, deleteImage, getAllImages, resizeImage, readImageAsBase64, generateImageId } from './imageStore';
 
 const INIT_DATA = {
     cats: [
@@ -35,6 +36,8 @@ const INIT_DATA = {
     resultFontSize: 'normal', // small, normal, large
     mainResultFontSize: 'normal',
     showHiddenControl: true, // Default to true so restored weights are visible
+    resizeImages: true,      // Auto-resize uploaded images
+    maxImageSize: 500,       // Max dimension for resized images (px)
 };
 
 // Normalize item to new format (migrate from string to object)
@@ -45,7 +48,8 @@ const normalizeItem = (item) => {
     return {
         name: item.name || '',
         subItems: item.subItems || [],
-        hasSubItems: item.hasSubItems ?? false
+        hasSubItems: item.hasSubItems ?? false,
+        imageId: item.imageId || null
     };
 };
 
@@ -126,6 +130,7 @@ export default function App() {
     const [selectModal, setSelectModal] = useState(null);
     const [itemMenu, setItemMenu] = useState(null);
     const [expandedItems, setExpandedItems] = useState({});
+    const [imageCache, setImageCache] = useState({});
     const dragNode = useRef(null);
     const longPressTimer = useRef(null);
     const isLongPress = useRef(false);
@@ -136,6 +141,89 @@ export default function App() {
     const storageSize = () => {
         const b = new Blob([JSON.stringify(store)]).size;
         return b < 1024 ? b + ' B' : (b / 1024).toFixed(1) + ' KB';
+    };
+
+    // Load all images from IndexedDB on mount
+    useEffect(() => {
+        getAllImages().then(images => {
+            setImageCache(images);
+        }).catch(err => console.error('Failed to load images:', err));
+    }, []);
+
+    // Handle image upload for a candidate item
+    const handleImageUpload = async (catId, itemName, file) => {
+        try {
+            const imageId = generateImageId(catId, itemName);
+            let base64Data;
+
+            if (store.resizeImages) {
+                base64Data = await resizeImage(file, store.maxImageSize);
+            } else {
+                base64Data = await readImageAsBase64(file);
+            }
+
+            await saveImage(imageId, base64Data);
+            setImageCache(prev => ({ ...prev, [imageId]: base64Data }));
+
+            // Update item with imageId
+            update(s => ({
+                cats: s.cats.map(c => {
+                    if (c.id === catId) {
+                        return {
+                            ...c,
+                            items: c.items.map(item => {
+                                if (getItemName(item) === itemName) {
+                                    return { ...normalizeItem(item), imageId };
+                                }
+                                return item;
+                            })
+                        };
+                    }
+                    return c;
+                })
+            }));
+
+            toast('画像を保存しました');
+        } catch (err) {
+            console.error('Failed to upload image:', err);
+            toast('画像の保存に失敗しました');
+        }
+    };
+
+    // Delete image for a candidate item
+    const handleImageDelete = async (catId, itemName) => {
+        try {
+            const imageId = generateImageId(catId, itemName);
+            await deleteImage(imageId);
+            setImageCache(prev => {
+                const newCache = { ...prev };
+                delete newCache[imageId];
+                return newCache;
+            });
+
+            // Remove imageId from item
+            update(s => ({
+                cats: s.cats.map(c => {
+                    if (c.id === catId) {
+                        return {
+                            ...c,
+                            items: c.items.map(item => {
+                                if (getItemName(item) === itemName) {
+                                    return { ...normalizeItem(item), imageId: null };
+                                }
+                                return item;
+                            })
+                        };
+                    }
+                    return c;
+                })
+            }));
+
+            toast('画像を削除しました');
+        } catch (err) {
+            console.error('Failed to delete image:', err);
+            toast('画像の削除に失敗しました');
+        }
     };
 
     const update = (fn) => setStore(prev => ({ ...prev, ...fn(prev) }));
@@ -583,10 +671,32 @@ export default function App() {
                                     </div>
                                     <div
                                         onClick={() => cat.items.length > 0 && setSelectModal({ cat })}
-                                        className={`min-h-[36px] flex items-center justify-center rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text-sm`}
+                                        className={`min-h-[36px] flex flex-col items-center justify-center rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text-sm`}
                                         title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
                                     >
-                                        {store.results[cat.id] || <span className="text-gray-500 text-xs">---</span>}
+                                        {(() => {
+                                            const resultText = store.results[cat.id] || '';
+                                            if (!resultText) return <span className="text-gray-500 text-xs">---</span>;
+
+                                            // Find the item to check if it has an image
+                                            const mainItemName = resultText.split(' → ')[0];
+                                            const item = cat.items.find(i => getItemName(i) === mainItemName);
+                                            const imgId = item?.imageId;
+                                            const imgSrc = imgId && imageCache[imgId];
+
+                                            return (
+                                                <>
+                                                    {imgSrc && (
+                                                        <img
+                                                            src={imgSrc}
+                                                            alt={mainItemName}
+                                                            className="max-h-[60px] max-w-full rounded mb-1 object-contain"
+                                                        />
+                                                    )}
+                                                    {resultText && <span>{resultText}</span>}
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ))}
@@ -832,6 +942,36 @@ export default function App() {
                                     <option value="large">大</option>
                                 </select>
                             </div>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">画像オプション</h3>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>画像を自動リサイズ</span>
+                                    <p className="text-xs text-gray-500">アップロード時に画像を縮小</p>
+                                </div>
+                                <button onClick={() => update(s => ({ resizeImages: !s.resizeImages }))} className={`w-12 h-6 rounded-full transition ${store.resizeImages ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.resizeImages ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            {store.resizeImages && (
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span>最大サイズ</span>
+                                        <p className="text-xs text-gray-500">リサイズ時の最大幅/高さ</p>
+                                    </div>
+                                    <select
+                                        value={store.maxImageSize}
+                                        onChange={(e) => update(() => ({ maxImageSize: Number(e.target.value) }))}
+                                        className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
+                                    >
+                                        <option value={300}>300px</option>
+                                        <option value={500}>500px</option>
+                                        <option value={800}>800px</option>
+                                        <option value={1000}>1000px</option>
+                                    </select>
+                                </div>
+                            )}
                         </div>
                         <div className={cardCls + ' p-4'}>
                             <h3 className="font-semibold mb-3">データ</h3>
@@ -1082,6 +1222,43 @@ export default function App() {
                                                 {/* Sub-items section */}
                                                 {isExpanded && (
                                                     <div className={`mt-2 pl-3 border-l-2 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                                                        {/* Image upload section */}
+                                                        <div className="mb-3">
+                                                            <span className="text-xs text-gray-500 block mb-1">画像</span>
+                                                            {item.imageId && imageCache[item.imageId] ? (
+                                                                <div className="relative inline-block">
+                                                                    <img
+                                                                        src={imageCache[item.imageId]}
+                                                                        alt={itemName}
+                                                                        className="max-w-[120px] max-h-[80px] rounded border border-gray-600 object-cover"
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => handleImageDelete(cat.id, itemName)}
+                                                                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center"
+                                                                        title="画像を削除"
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <label className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>
+                                                                    <span>📷 画像を追加</span>
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        className="hidden"
+                                                                        onChange={(e) => {
+                                                                            const file = e.target.files[0];
+                                                                            if (file) {
+                                                                                handleImageUpload(cat.id, itemName, file);
+                                                                            }
+                                                                            e.target.value = '';
+                                                                        }}
+                                                                    />
+                                                                </label>
+                                                            )}
+                                                        </div>
+
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <span className="text-xs text-gray-500">サブ項目</span>
                                                             <button
