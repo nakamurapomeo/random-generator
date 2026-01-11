@@ -10,14 +10,17 @@ const INIT_DATA = {
     history: [],
     favs: [],
     presets: [],
+    selectedPresetId: null,
     dark: true,
     noRepeat: false,
     showHidden: false,
-    // New settings
     showAnimation: false,
     autoLockOnSelect: true,
     showWeightIndicator: true,
-    compactMode: false
+    compactMode: false,
+    showHistoryTime: true,
+    showRestoreButton: true,
+    resultFontSize: 'normal'
 };
 
 // Helper function for weighted random selection
@@ -270,7 +273,25 @@ export default function App() {
     };
 
     const doExportJSON = () => {
-        const blob = new Blob([JSON.stringify({ cats: store.cats, presets: store.presets }, null, 2)], { type: 'application/json' });
+        const exportData = {
+            cats: store.cats,
+            presets: store.presets,
+            results: store.results,
+            locked: store.locked,
+            favs: store.favs,
+            settings: {
+                dark: store.dark,
+                noRepeat: store.noRepeat,
+                showHidden: store.showHidden,
+                showAnimation: store.showAnimation,
+                showWeightIndicator: store.showWeightIndicator,
+                compactMode: store.compactMode,
+                showHistoryTime: store.showHistoryTime,
+                showRestoreButton: store.showRestoreButton,
+                resultFontSize: store.resultFontSize
+            }
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -315,15 +336,28 @@ export default function App() {
 
     const savePreset = () => {
         if (!tempPreset.trim()) return;
+        const snapshot = {
+            id: Date.now(),
+            name: tempPreset,
+            cats: JSON.parse(JSON.stringify(store.cats)),
+            results: { ...store.results },
+            locked: { ...store.locked }
+        };
         update(s => ({
-            presets: [...s.presets, { id: Date.now(), name: tempPreset, cats: JSON.parse(JSON.stringify(s.cats)) }]
+            presets: [...s.presets, snapshot],
+            selectedPresetId: snapshot.id
         }));
         setTempPreset('');
         toast('プリセット保存');
     };
 
     const loadPreset = (p) => {
-        update(() => ({ cats: JSON.parse(JSON.stringify(p.cats)), results: {}, locked: {} }));
+        update(() => ({
+            cats: JSON.parse(JSON.stringify(p.cats)),
+            results: p.results ? { ...p.results } : {},
+            locked: p.locked ? { ...p.locked } : {},
+            selectedPresetId: p.id
+        }));
         toast('読み込みました');
     };
 
@@ -363,6 +397,26 @@ export default function App() {
 
                 {page === 'main' && (
                     <>
+                        {store.presets.length > 0 && (
+                            <div className="mb-3">
+                                <select
+                                    value={store.selectedPresetId || ''}
+                                    onChange={(e) => {
+                                        const id = Number(e.target.value);
+                                        if (id) {
+                                            const p = store.presets.find(p => p.id === id);
+                                            if (p) loadPreset(p);
+                                        }
+                                    }}
+                                    className={`w-full ${inputCls}`}
+                                >
+                                    <option value="">📁 プリセットを選択...</option>
+                                    {store.presets.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         {hiddenCount > 0 && (
                             <div className="flex justify-end mb-2">
                                 <button onClick={() => update(s => ({ showHidden: !s.showHidden }))} className={`text-xs ${btnCls}`}>
@@ -442,13 +496,26 @@ export default function App() {
                             </div>
                         )}
                         {store.history.length === 0 && <p className="text-center text-gray-500 py-8">履歴なし</p>}
-                        {store.history.map(h => (
-                            <div key={h.id} className={cardCls + ' p-3'}>
-                                <div className="text-xs text-gray-500 mb-1">{h.time}</div>
-                                {Object.entries(h.res).map(([id, val]) => val && <div key={id} className="text-sm"><span className="text-purple-400">{h.names[id]}:</span> {val}</div>)}
-                                <button onClick={() => restoreRes(h.res)} className="text-xs text-purple-400 mt-2">↩️復元</button>
-                            </div>
-                        ))}
+                        {store.history.map(h => {
+                            const resultSize = store.resultFontSize === 'small' ? 'text-xs' : store.resultFontSize === 'large' ? 'text-base' : 'text-sm';
+                            return (
+                                <div key={h.id} className={cardCls + ' p-3'}>
+                                    {store.showHistoryTime && <div className="text-xs text-gray-500 mb-1">{h.time}</div>}
+                                    {Object.entries(h.res).map(([id, val]) => {
+                                        const cat = store.cats.find(c => c.id === Number(id));
+                                        const color = cat?.color || '#a855f7';
+                                        return val && (
+                                            <div key={id} className={resultSize}>
+                                                <span style={{ color }}>{h.names[id]}:</span> {val}
+                                            </div>
+                                        );
+                                    })}
+                                    {store.showRestoreButton && (
+                                        <button onClick={() => restoreRes(h.res)} className="text-xs text-purple-400 mt-2">↩️復元</button>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -461,16 +528,29 @@ export default function App() {
                             </div>
                         )}
                         {store.favs.length === 0 && <p className="text-center text-gray-500 py-8">お気に入りなし</p>}
-                        {store.favs.map(f => (
-                            <div key={f.id} className={cardCls + ' p-3'}>
-                                <div className="text-xs text-gray-500 mb-1">{f.time}</div>
-                                {Object.entries(f.res).map(([id, val]) => val && <div key={id} className="text-sm"><span className="text-purple-400">{f.names[id]}:</span> {val}</div>)}
-                                <div className="flex gap-3 mt-2">
-                                    <button onClick={() => restoreRes(f.res)} className="text-xs text-purple-400">↩️復元</button>
-                                    <button onClick={() => update(s => ({ favs: s.favs.filter(x => x.id !== f.id) }))} className="text-xs text-red-400">🗑️削除</button>
+                        {store.favs.map(f => {
+                            const resultSize = store.resultFontSize === 'small' ? 'text-xs' : store.resultFontSize === 'large' ? 'text-base' : 'text-sm';
+                            return (
+                                <div key={f.id} className={cardCls + ' p-3'}>
+                                    {store.showHistoryTime && <div className="text-xs text-gray-500 mb-1">{f.time}</div>}
+                                    {Object.entries(f.res).map(([id, val]) => {
+                                        const cat = store.cats.find(c => c.id === Number(id));
+                                        const color = cat?.color || '#a855f7';
+                                        return val && (
+                                            <div key={id} className={resultSize}>
+                                                <span style={{ color }}>{f.names[id]}:</span> {val}
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="flex gap-3 mt-2">
+                                        {store.showRestoreButton && (
+                                            <button onClick={() => restoreRes(f.res)} className="text-xs text-purple-400">↩️復元</button>
+                                        )}
+                                        <button onClick={() => update(s => ({ favs: s.favs.filter(x => x.id !== f.id) }))} className="text-xs text-red-400">🗑️削除</button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
@@ -539,7 +619,7 @@ export default function App() {
                                     <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between mb-3">
                                 <div>
                                     <span>コンパクトモード</span>
                                     <p className="text-xs text-gray-500">項目カードを小さく</p>
@@ -547,6 +627,39 @@ export default function App() {
                                 <button onClick={() => update(s => ({ compactMode: !s.compactMode }))} className={`w-12 h-6 rounded-full transition ${store.compactMode ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
                                     <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.compactMode ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>履歴に時間を表示</span>
+                                    <p className="text-xs text-gray-500">生成日時を表示</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showHistoryTime: !s.showHistoryTime }))} className={`w-12 h-6 rounded-full transition ${store.showHistoryTime ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showHistoryTime ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>復元ボタンを表示</span>
+                                    <p className="text-xs text-gray-500">履歴から復元可能に</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showRestoreButton: !s.showRestoreButton }))} className={`w-12 h-6 rounded-full transition ${store.showRestoreButton ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showRestoreButton ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span>結果の文字サイズ</span>
+                                    <p className="text-xs text-gray-500">履歴・お気に入りの表示</p>
+                                </div>
+                                <select
+                                    value={store.resultFontSize}
+                                    onChange={(e) => update(() => ({ resultFontSize: e.target.value }))}
+                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
+                                >
+                                    <option value="small">小</option>
+                                    <option value="normal">中</option>
+                                    <option value="large">大</option>
+                                </select>
                             </div>
                         </div>
                         <div className={cardCls + ' p-4'}>
@@ -569,7 +682,7 @@ export default function App() {
                 )}
 
                 {modal?.type === 'edit' && (() => {
-                    const emojiOptions = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡', '🎮', '🎵', '🎨', '🍕', '🍜', '🎂', '☕', '🏠', '🚗', '✈️', '🌙', '☀️', '❤️', '💜', '💙', '💚', '💛', '🧡'];
+                    const emojiOptions = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡', '🎮', '🎵', '🎨', '🍕', '🍜', '🎂', '☕', '🏠', '🚗', '✈️', '🌙', '☀️', '❤️', '💜', '💙', '💚', '💛', '🧡', '👧', '👦', '👩', '👨', '👶', '👋', '👍', '👎', '✋', '✌️', '👌', '🤞', '💪', '👀', '💋', '😀', '🤣', '😍', '🤩', '🤔', '😱', '🏀', '⚽', '🏈', '🎾', '🏓', '🎳', '🚴', '🏃'];
                     const colorOptions = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
 
                     return (
