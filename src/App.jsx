@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const INIT_DATA = {
     cats: [
-        { id: 1, name: '項目1', items: ['サンプルA', 'サンプルB', 'サンプルC'], hidden: false, weights: {} },
-        { id: 2, name: '項目2', items: ['サンプルX', 'サンプルY', 'サンプルZ'], hidden: false, weights: {} }
+        { id: 1, name: '項目1', items: ['サンプルA', 'サンプルB', 'サンプルC'], hidden: false, weights: {}, emoji: '🎲', color: '#a855f7' },
+        { id: 2, name: '項目2', items: ['サンプルX', 'サンプルY', 'サンプルZ'], hidden: false, weights: {}, emoji: '🎯', color: '#ec4899' }
     ],
     results: {},
     locked: {},
@@ -51,8 +51,11 @@ export default function App() {
 
     const [tempName, setTempName] = useState('');
     const [tempItems, setTempItems] = useState('');
+    const [tempEmoji, setTempEmoji] = useState('🎲');
+    const [tempColor, setTempColor] = useState('#a855f7');
     const [tempPreset, setTempPreset] = useState('');
     const [tempImport, setTempImport] = useState('');
+    const [tempNewItem, setTempNewItem] = useState('');
 
     const [dragId, setDragId] = useState(null);
     const [dragOverId, setDragOverId] = useState(null);
@@ -168,6 +171,8 @@ export default function App() {
     const openEditModal = (cat) => {
         setTempName(cat.name);
         setTempItems(cat.items.join('\n'));
+        setTempEmoji(cat.emoji || '🎲');
+        setTempColor(cat.color || '#a855f7');
         setModal({ type: 'edit', id: cat.id, hidden: cat.hidden });
     };
 
@@ -176,7 +181,7 @@ export default function App() {
         const newName = tempName.trim() || '項目';
         const newItems = tempItems.split('\n').map(s => s.trim()).filter(Boolean);
         update(s => ({
-            cats: s.cats.map(c => c.id === id ? { ...c, name: newName, items: newItems } : c)
+            cats: s.cats.map(c => c.id === id ? { ...c, name: newName, items: newItems, emoji: tempEmoji, color: tempColor } : c)
         }));
         setModal(null);
         toast('保存しました');
@@ -206,14 +211,16 @@ export default function App() {
         const cat = store.cats.find(c => c.id === modal.id);
         if (!cat) return;
         const newId = Math.max(...store.cats.map(c => c.id)) + 1;
-        update(s => ({ cats: [...s.cats, { id: newId, name: cat.name + '(複製)', items: [...cat.items], hidden: false }] }));
+        update(s => ({ cats: [...s.cats, { id: newId, name: cat.name + '(複製)', items: [...cat.items], hidden: false, weights: { ...cat.weights }, emoji: cat.emoji || '🎲', color: cat.color || '#a855f7' }] }));
         setModal(null);
         toast('複製しました');
     };
 
     const addCat = () => {
+        const emojis = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡'];
+        const colors = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4'];
         const newId = store.cats.length > 0 ? Math.max(...store.cats.map(c => c.id)) + 1 : 1;
-        update(s => ({ cats: [...s.cats, { id: newId, name: `項目${newId}`, items: [], hidden: false }] }));
+        update(s => ({ cats: [...s.cats, { id: newId, name: `項目${newId}`, items: [], hidden: false, weights: {}, emoji: emojis[newId % emojis.length], color: colors[newId % colors.length] }] }));
     };
 
     const toggleLock = (id) => {
@@ -368,7 +375,8 @@ export default function App() {
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                             <span className="text-gray-400 cursor-grab">⠿</span>
-                                            <span className="font-medium text-purple-400">{cat.name}</span>
+                                            <span className="text-lg">{cat.emoji || '🎲'}</span>
+                                            <span className="font-medium" style={{ color: cat.color || '#a855f7' }}>{cat.name}</span>
                                             {cat.hidden && <span className="text-xs text-gray-500">(非表示)</span>}
                                             <span className="text-xs text-gray-500">{cat.items.length}件</span>
                                         </div>
@@ -507,31 +515,55 @@ export default function App() {
                     </div>
                 )}
 
-                {modal?.type === 'edit' && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
-                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
-                            <h3 className="text-lg font-bold mb-4">項目を編集</h3>
-                            <div className="mb-3">
-                                <label className="block text-sm text-gray-500 mb-1">項目名</label>
-                                <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls} />
-                            </div>
-                            <div className="mb-3">
-                                <label className="block text-sm text-gray-500 mb-1">候補（1行に1つ）</label>
-                                <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={8} className={inputCls + ' resize-none font-mono text-sm'} spellCheck={false} />
-                                <div className="text-xs text-gray-500 mt-1">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                <button onClick={toggleHidden} className={btnCls}>{modal.hidden ? '👁 表示する' : '🙈 非表示'}</button>
-                                <button onClick={dupCat} className={btnCls}>📋 複製</button>
-                                <button onClick={deleteCat} className={`${btnCls} text-red-400`}>🗑️ 削除</button>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                                <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
-                                <button onClick={saveEditModal} className="px-4 py-2 bg-purple-600 text-white rounded-lg">保存</button>
+                {modal?.type === 'edit' && (() => {
+                    const emojiOptions = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡', '🎮', '🎵', '🎨', '🍕', '🍜', '🎂', '☕', '🏠', '🚗', '✈️', '🌙', '☀️', '❤️', '💜', '💙', '💚', '💛', '🧡'];
+                    const colorOptions = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+
+                    return (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold mb-4">項目を編集</h3>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">項目名</label>
+                                    <div className="flex gap-2">
+                                        <span className="text-2xl">{tempEmoji}</span>
+                                        <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls} style={{ color: tempColor }} />
+                                    </div>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">絵文字</label>
+                                    <div className="flex flex-wrap gap-1">
+                                        {emojiOptions.map(e => (
+                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w-9 h-9 text-xl rounded-lg ${tempEmoji === e ? 'bg-purple-600 ring-2 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">色</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {colorOptions.map(c => (
+                                            <button key={c} onClick={() => setTempColor(c)} className={`w-8 h-8 rounded-full ${tempColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`} style={{ backgroundColor: c }} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">候補（1行に1つ）</label>
+                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={6} className={inputCls + ' resize-none font-mono text-sm'} spellCheck={false} />
+                                    <div className="text-xs text-gray-500 mt-1">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    <button onClick={toggleHidden} className={btnCls}>{modal.hidden ? '👁 表示する' : '🙈 非表示'}</button>
+                                    <button onClick={dupCat} className={btnCls}>📋 複製</button>
+                                    <button onClick={deleteCat} className={`${btnCls} text-red-400`}>🗑️ 削除</button>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
+                                    <button onClick={saveEditModal} className="px-4 py-2 bg-purple-600 text-white rounded-lg">保存</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {modal?.type === 'import' && (
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
@@ -586,10 +618,10 @@ export default function App() {
                                                         }
                                                     }}
                                                     className={`flex-1 text-left px-3 py-2 rounded-lg transition ${store.results[cat.id] === item
-                                                            ? 'bg-purple-600 text-white'
-                                                            : isDisabled
-                                                                ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
-                                                                : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
+                                                        ? 'bg-purple-600 text-white'
+                                                        : isDisabled
+                                                            ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
+                                                            : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
                                                         }`}
                                                 >
                                                     <span className="truncate">{item}</span>
@@ -616,6 +648,44 @@ export default function App() {
                                             </div>
                                         );
                                     })}
+                                </div>
+                                <div className="flex gap-2 mt-3 pt-3 border-t border-gray-700">
+                                    <input
+                                        type="text"
+                                        value={tempNewItem}
+                                        onChange={e => setTempNewItem(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && tempNewItem.trim()) {
+                                                update(s => ({
+                                                    cats: s.cats.map(c => c.id === cat.id
+                                                        ? { ...c, items: [...c.items, tempNewItem.trim()] }
+                                                        : c
+                                                    )
+                                                }));
+                                                setTempNewItem('');
+                                                toast('候補を追加しました');
+                                            }
+                                        }}
+                                        placeholder="新しい候補を追加..."
+                                        className={`flex-1 ${inputCls}`}
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (tempNewItem.trim()) {
+                                                update(s => ({
+                                                    cats: s.cats.map(c => c.id === cat.id
+                                                        ? { ...c, items: [...c.items, tempNewItem.trim()] }
+                                                        : c
+                                                    )
+                                                }));
+                                                setTempNewItem('');
+                                                toast('候補を追加しました');
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg shrink-0"
+                                    >
+                                        追加
+                                    </button>
                                 </div>
                                 <div className="flex justify-between mt-4 pt-3 border-t border-gray-600">
                                     <button
