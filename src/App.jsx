@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const INIT_DATA = {
     cats: [
-        { id: 1, name: '項目1', items: ['サンプルA', 'サンプルB', 'サンプルC'], hidden: false },
-        { id: 2, name: '項目2', items: ['サンプルX', 'サンプルY', 'サンプルZ'], hidden: false }
+        { id: 1, name: '項目1', items: ['サンプルA', 'サンプルB', 'サンプルC'], hidden: false, weights: {} },
+        { id: 2, name: '項目2', items: ['サンプルX', 'サンプルY', 'サンプルZ'], hidden: false, weights: {} }
     ],
     results: {},
     locked: {},
@@ -13,6 +13,19 @@ const INIT_DATA = {
     dark: true,
     noRepeat: false,
     showHidden: false
+};
+
+// Helper function for weighted random selection
+const weightedRandom = (items, weights) => {
+    const pool = [];
+    items.forEach(item => {
+        const w = weights[item] ?? 1;
+        if (w > 0) {
+            for (let i = 0; i < w; i++) pool.push(item);
+        }
+    });
+    if (pool.length === 0) return items[0] || '';
+    return pool[Math.floor(Math.random() * pool.length)];
 };
 
 function useLocalStorage(key, init) {
@@ -121,12 +134,18 @@ export default function App() {
                     if (store.locked[c.id] && g === 0) {
                         newRes[c.id] = store.results[c.id] || '';
                     } else if (c.items.length > 0) {
-                        let pool = [...c.items];
+                        const weights = c.weights || {};
+                        // Filter items with weight > 0
+                        let pool = c.items.filter(item => (weights[item] ?? 1) > 0);
+                        if (pool.length === 0) {
+                            newRes[c.id] = '';
+                            return;
+                        }
                         if (store.noRepeat && pool.length > 1) {
                             const last = g === 0 ? store.results[c.id] : allResults[g - 1]?.res[c.id];
                             if (last) pool = pool.filter(x => x !== last);
                         }
-                        newRes[c.id] = pool[Math.floor(Math.random() * pool.length)];
+                        newRes[c.id] = weightedRandom(pool, weights);
                     }
                 });
                 allResults.push({
@@ -528,51 +547,96 @@ export default function App() {
                     </div>
                 )}
 
-                {selectModal && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectModal(null)}>
-                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col`} onClick={e => e.stopPropagation()}>
-                            <h3 className="text-lg font-bold mb-2">「{selectModal.cat.name}」の候補を選択</h3>
-                            <p className="text-sm text-gray-500 mb-3">選択すると固定されます。他の項目は「生成」でランダムに。</p>
-                            <div className="overflow-y-auto flex-1 space-y-1">
-                                {selectModal.cat.items.map((item, idx) => (
+                {selectModal && (() => {
+                    const cat = store.cats.find(c => c.id === selectModal.cat.id) || selectModal.cat;
+                    const weights = cat.weights || {};
+
+                    const updateWeight = (item, delta) => {
+                        const currentWeight = weights[item] ?? 1;
+                        const newWeight = Math.max(0, Math.min(5, currentWeight + delta));
+                        update(s => ({
+                            cats: s.cats.map(c => c.id === cat.id
+                                ? { ...c, weights: { ...c.weights, [item]: newWeight } }
+                                : c
+                            )
+                        }));
+                    };
+
+                    return (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectModal(null)}>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col`} onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
+                                <p className="text-sm text-gray-500 mb-3">タップで固定 / ±で出やすさ調整（0=出ない）</p>
+                                <div className="overflow-y-auto flex-1 space-y-2">
+                                    {cat.items.map((item, idx) => {
+                                        const w = weights[item] ?? 1;
+                                        const isDisabled = w === 0;
+                                        return (
+                                            <div key={idx} className={`flex items-center gap-2 rounded-lg transition ${isDisabled ? 'opacity-40' : ''
+                                                } ${store.results[cat.id] === item ? 'ring-2 ring-purple-500' : ''}`}>
+                                                <button
+                                                    onClick={() => {
+                                                        if (!isDisabled) {
+                                                            update(s => ({
+                                                                results: { ...s.results, [cat.id]: item },
+                                                                locked: { ...s.locked, [cat.id]: true }
+                                                            }));
+                                                            setSelectModal(null);
+                                                            toast(`「${item}」を選択・固定しました`);
+                                                        }
+                                                    }}
+                                                    className={`flex-1 text-left px-3 py-2 rounded-lg transition ${store.results[cat.id] === item
+                                                            ? 'bg-purple-600 text-white'
+                                                            : isDisabled
+                                                                ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
+                                                                : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    <span className="truncate">{item}</span>
+                                                    {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
+                                                </button>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); updateWeight(item, -1); }}
+                                                        className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                                    >
+                                                        −
+                                                    </button>
+                                                    <span className={`w-6 text-center text-sm font-medium ${w === 0 ? 'text-red-400' : w >= 3 ? 'text-green-400' : ''
+                                                        }`}>
+                                                        {w}
+                                                    </span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); updateWeight(item, 1); }}
+                                                        className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                                    >
+                                                        ＋
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex justify-between mt-4 pt-3 border-t border-gray-600">
                                     <button
-                                        key={idx}
                                         onClick={() => {
                                             update(s => ({
-                                                results: { ...s.results, [selectModal.cat.id]: item },
-                                                locked: { ...s.locked, [selectModal.cat.id]: true }
+                                                results: { ...s.results, [cat.id]: '' },
+                                                locked: { ...s.locked, [cat.id]: false }
                                             }));
                                             setSelectModal(null);
-                                            toast(`「${item}」を選択・固定しました`);
+                                            toast('選択を解除しました');
                                         }}
-                                        className={`w-full text-left px-4 py-3 rounded-lg transition ${store.results[selectModal.cat.id] === item
-                                            ? 'bg-purple-600 text-white'
-                                            : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
-                                            }`}
+                                        className={`text-sm ${btnCls} text-red-400`}
                                     >
-                                        {item}
+                                        🔓 選択解除
                                     </button>
-                                ))}
-                            </div>
-                            <div className="flex justify-between mt-4 pt-3 border-t border-gray-600">
-                                <button
-                                    onClick={() => {
-                                        update(s => ({
-                                            results: { ...s.results, [selectModal.cat.id]: '' },
-                                            locked: { ...s.locked, [selectModal.cat.id]: false }
-                                        }));
-                                        setSelectModal(null);
-                                        toast('選択を解除しました');
-                                    }}
-                                    className={`text-sm ${btnCls} text-red-400`}
-                                >
-                                    🔓 選択解除
-                                </button>
-                                <button onClick={() => setSelectModal(null)} className={btnCls}>閉じる</button>
+                                    <button onClick={() => setSelectModal(null)} className={btnCls}>閉じる</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 <div className="text-center text-xs text-gray-500 mt-6">ストレージ: {storageSize()}</div>
             </div>
