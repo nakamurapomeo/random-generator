@@ -351,6 +351,7 @@ export default function App() {
                                             <span className="text-gray-400 cursor-grab">⠿</span>
                                             <span className="font-medium text-purple-400">{cat.name}</span>
                                             {cat.hidden && <span className="text-xs text-gray-500">(非表示)</span>}
+                                            <span className="text-xs text-gray-500">{cat.items.length}件</span>
                                         </div>
                                         <div className="flex gap-1">
                                             <button onClick={() => toggleLock(cat.id)} className={`p-1.5 rounded-lg text-sm ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
@@ -364,7 +365,6 @@ export default function App() {
                                     >
                                         {store.results[cat.id] || <span className="text-gray-500">---</span>}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">{cat.items.length}件の候補</div>
                                 </div>
                             ))}
                         </div>
@@ -546,8 +546,8 @@ export default function App() {
                                             toast(`「${item}」を選択・固定しました`);
                                         }}
                                         className={`w-full text-left px-4 py-3 rounded-lg transition ${store.results[selectModal.cat.id] === item
-                                                ? 'bg-purple-600 text-white'
-                                                : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
+                                            ? 'bg-purple-600 text-white'
+                                            : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
                                             }`}
                                     >
                                         {item}
