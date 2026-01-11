@@ -39,7 +39,7 @@ export default function WordArranger({ onSwitchApp }) {
     const [showEditPanel, setShowEditPanel] = useState(false);
     const [editFilter, setEditFilter] = useState('all');
     const [packMode, setPackMode] = useState(true);
-    const [savedSlots, setSavedSlots] = useState({});
+    const [savedSlots, setSavedSlots] = useState([]);
     const [searchText, setSearchText] = useState('');
     const [selectedIdx, setSelectedIdx] = useState(null);
     const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
@@ -53,7 +53,16 @@ export default function WordArranger({ onSwitchApp }) {
     useEffect(() => {
         try {
             const slots = localStorage.getItem('wordArrangerSlots2');
-            if (slots) setSavedSlots(JSON.parse(slots));
+            if (slots) {
+                const parsed = JSON.parse(slots);
+                if (Array.isArray(parsed)) {
+                    setSavedSlots(parsed);
+                } else {
+                    // Migration from object to array
+                    const migrated = Object.entries(parsed).map(([name, data]) => ({ name, ...data }));
+                    setSavedSlots(migrated);
+                }
+            }
             const saved = localStorage.getItem('wordArrangerData2');
             if (saved) {
                 const d = JSON.parse(saved);
@@ -110,9 +119,58 @@ export default function WordArranger({ onSwitchApp }) {
     const duplicateWord = (i) => { const nw = [...words]; nw.splice(i + 1, 0, { ...words[i] }); setWords(nw); };
     const openBulkEdit = () => { setBulkEditText(words.map(w => w.text).join('\n')); setShowBulkEdit(true); };
     const saveBulkEdit = () => { const lines = bulkEditText.split('\n').filter(l => l.trim()); setWords(lines.map((t, i) => ({ text: t.trim(), size: words[i]?.size || defaultSize, color: words[i]?.color || defaultColor }))); setShowBulkEdit(false); };
-    const doSaveSlot = () => { if (!saveName.trim()) return; setSavedSlots({ ...savedSlots, [saveName.trim()]: { words, defaultSize, defaultColor, bgColor, packMode } }); showToast('保存しました'); setSaveName(''); setShowSaveModal(false); };
-    const loadFromSlot = (name) => { if (!name || !savedSlots[name]) return; const d = savedSlots[name]; if (d.words) setWords(d.words); if (d.defaultSize) setDefaultSize(d.defaultSize); if (d.defaultColor) setDefaultColor(d.defaultColor); if (d.bgColor) setBgColor(d.bgColor); if (d.packMode !== undefined) setPackMode(d.packMode); showToast('読込完了'); };
-    const deleteSlot = (name) => { const ns = { ...savedSlots }; delete ns[name]; setSavedSlots(ns); };
+
+    const doSaveSlot = () => {
+        const name = saveName.trim();
+        if (!name) return;
+
+        // Check if exists
+        const existsIdx = savedSlots.findIndex(s => s.name === name);
+        const newData = { name, words, defaultSize, defaultColor, bgColor, packMode };
+
+        if (existsIdx >= 0) {
+            const newSlots = [...savedSlots];
+            newSlots[existsIdx] = newData;
+            setSavedSlots(newSlots);
+        } else {
+            setSavedSlots([...savedSlots, newData]);
+        }
+
+        showToast('保存しました');
+        setSaveName('');
+        setShowSaveModal(false);
+    };
+
+    const loadFromSlot = (name) => {
+        if (!name) return;
+        const d = savedSlots.find(s => s.name === name);
+        if (!d) return;
+        if (d.words) setWords(d.words);
+        if (d.defaultSize) setDefaultSize(d.defaultSize);
+        if (d.defaultColor) setDefaultColor(d.defaultColor);
+        if (d.bgColor) setBgColor(d.bgColor);
+        if (d.packMode !== undefined) setPackMode(d.packMode);
+        showToast('読込完了');
+    };
+
+    const deleteSlot = (name) => {
+        setSavedSlots(savedSlots.filter(s => s.name !== name));
+    };
+
+    const moveSlot = (name, dir) => {
+        const idx = savedSlots.findIndex(s => s.name === name);
+        if (idx < 0) return;
+
+        const newSlots = [...savedSlots];
+        if (dir === -1 && idx > 0) {
+            [newSlots[idx], newSlots[idx - 1]] = [newSlots[idx - 1], newSlots[idx]];
+        } else if (dir === 1 && idx < newSlots.length - 1) {
+            [newSlots[idx], newSlots[idx + 1]] = [newSlots[idx + 1], newSlots[idx]];
+        } else {
+            return;
+        }
+        setSavedSlots(newSlots);
+    };
     const importWords = (text) => { let items = text.includes('\n') ? text.split('\n') : text.includes(',') ? text.split(',') : [text]; const filtered = items.map(w => w.trim()).filter(w => w); if (filtered.length > 0) { setWords([...words, ...filtered.map(t => ({ text: t, size: defaultSize, color: defaultColor }))]); showToast(filtered.length + '個追加'); setImportText(''); setShowImport(false); } };
     const exportJSON = () => { const json = JSON.stringify({ words, defaultSize, defaultColor, bgColor, packMode }, null, 2); navigator.clipboard.writeText(json); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'word-arranger.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); showToast('JSON保存完了'); };
     const importJSON = (jsonStr) => { try { const d = JSON.parse(jsonStr); if (d.words) setWords(d.words); if (d.defaultSize) setDefaultSize(d.defaultSize); if (d.defaultColor) setDefaultColor(d.defaultColor); if (d.bgColor) setBgColor(d.bgColor); if (d.packMode !== undefined) setPackMode(d.packMode); showToast('インポート完了'); setShowImport(false); setImportText(''); } catch (e) { showToast('JSON形式エラー'); } };
@@ -148,7 +206,6 @@ export default function WordArranger({ onSwitchApp }) {
     const bulkChangeColor = (nc) => { const ids = getFilteredWords().map(w => w.oi); setWords(words.map((w, i) => ids.includes(i) ? { ...w, color: nc } : w)); };
     const getStats = () => { const sc = {}, cc = {}; words.forEach(w => { sc[w.size] = (sc[w.size] || 0) + 1; cc[w.color || '#6B7280'] = (cc[w.color || '#6B7280'] || 0) + 1; }); return { sc, cc }; };
     const displayWords = packMode ? [...words].sort((a, b) => b.size - a.size) : words;
-    const slotNames = Object.keys(savedSlots);
 
     return (
         <div className="min-h-screen text-white p-1" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
@@ -188,7 +245,7 @@ export default function WordArranger({ onSwitchApp }) {
                         <h1 onClick={onSwitchApp} className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-400 cursor-pointer hover:opacity-80 transition select-none">📝WordArr</h1>
                         <select onChange={e => e.target.value && loadFromSlot(e.target.value)} className="bg-gray-700 text-xs rounded px-1 py-0.5" defaultValue="">
                             <option value="">📂読込</option>
-                            {slotNames.map(n => <option key={n} value={n}>{n}</option>)}
+                            {savedSlots.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                         </select>
                         <button onClick={() => setShowSaveModal(true)} className="bg-indigo-500 hover:bg-indigo-600 text-xs px-1.5 py-0.5 rounded">💾保存</button>
                     </div>
@@ -327,14 +384,18 @@ export default function WordArranger({ onSwitchApp }) {
                                 <label className="text-xs">背景</label>
                                 <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-6 h-5 rounded cursor-pointer" />
                             </div>
-                            {slotNames.length > 0 && (
+                            {savedSlots.length > 0 && (
                                 <div>
                                     <label className="text-xs block mb-1">保存データ管理</label>
                                     <div className="flex flex-wrap gap-1">
-                                        {slotNames.map(name => (
-                                            <div key={name} className="flex items-center bg-white/10 rounded px-1 py-0.5">
-                                                <span className="text-xs mr-1">{name}</span>
-                                                <button onClick={() => deleteSlot(name)} className="text-red-400 hover:text-red-300 text-xs">×</button>
+                                        {savedSlots.map(slot => (
+                                            <div key={slot.name} className="flex items-center bg-white/10 rounded px-1 py-0.5 gap-1">
+                                                <span className="text-xs mr-auto cursor-pointer hover:text-blue-300" onClick={() => loadFromSlot(slot.name)}>{slot.name}</span>
+                                                <div className="flex flex-col gap-0.5">
+                                                    <button onClick={() => moveSlot(slot.name, -1)} className="text-[8px] leading-3 bg-gray-600 hover:bg-gray-500 px-1 rounded">▲</button>
+                                                    <button onClick={() => moveSlot(slot.name, 1)} className="text-[8px] leading-3 bg-gray-600 hover:bg-gray-500 px-1 rounded">▼</button>
+                                                </div>
+                                                <button onClick={() => deleteSlot(slot.name)} className="text-red-400 hover:text-red-300 text-xs px-1">×</button>
                                             </div>
                                         ))}
                                     </div>

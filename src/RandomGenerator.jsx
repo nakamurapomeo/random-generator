@@ -139,7 +139,8 @@ export default function RandomGenerator({ onSwitchApp }) {
     const [tempColor, setTempColor] = useState('#a855f7');
 
     const [tempImageMode, setTempImageMode] = useState(false);
-    const [tempImageStyle, setTempImageStyle] = useState('contain'); // contain, cover, original
+    const [tempImageStyle, setTempImageStyle] = useState('contain'); // contain, cover, original, square-contain
+    const [tempCustomImageSize, setTempCustomImageSize] = useState(0); // 0 = default (global setting)
     const [tempPreset, setTempPreset] = useState('');
     const [tempImport, setTempImport] = useState('');
     const [tempNewItem, setTempNewItem] = useState('');
@@ -455,6 +456,7 @@ export default function RandomGenerator({ onSwitchApp }) {
         setTempColor(cat.color || '#a855f7');
         setTempImageMode(cat.isImageMode || false);
         setTempImageStyle(cat.imageStyle || 'contain');
+        setTempCustomImageSize(cat.customImageSize || 0);
         setModal({ type: 'edit', id: cat.id, hidden: cat.hidden });
     };
 
@@ -484,7 +486,7 @@ export default function RandomGenerator({ onSwitchApp }) {
             });
 
             return {
-                cats: s.cats.map(c => c.id === id ? { ...c, name: newName, items: newItems, emoji: tempEmoji, color: tempColor, isImageMode: tempImageMode, imageStyle: tempImageStyle } : c)
+                cats: s.cats.map(c => c.id === id ? { ...c, name: newName, items: newItems, emoji: tempEmoji, color: tempColor, isImageMode: tempImageMode, imageStyle: tempImageStyle, customImageSize: tempCustomImageSize } : c)
             };
         });
         setModal(null);
@@ -515,7 +517,7 @@ export default function RandomGenerator({ onSwitchApp }) {
         const cat = store.cats.find(c => c.id === modal.id);
         if (!cat) return;
         const newId = Math.max(...store.cats.map(c => c.id)) + 1;
-        update(s => ({ cats: [...s.cats, { id: newId, name: cat.name + '(複製)', items: [...cat.items], hidden: false, weights: { ...cat.weights }, emoji: cat.emoji || '🎲', color: cat.color || '#a855f7', isImageMode: cat.isImageMode || false, imageStyle: cat.imageStyle || 'contain' }] }));
+        update(s => ({ cats: [...s.cats, { id: newId, name: cat.name + '(複製)', items: [...cat.items], hidden: false, weights: { ...cat.weights }, emoji: cat.emoji || '🎲', color: cat.color || '#a855f7', isImageMode: cat.isImageMode || false, imageStyle: cat.imageStyle || 'contain', customImageSize: cat.customImageSize || 0 }] }));
         setModal(null);
         toast('複製しました');
     };
@@ -524,7 +526,7 @@ export default function RandomGenerator({ onSwitchApp }) {
         const emojis = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡'];
         const colors = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4'];
         const newId = store.cats.length > 0 ? Math.max(...store.cats.map(c => c.id)) + 1 : 1;
-        update(s => ({ cats: [...s.cats, { id: newId, name: `項目${newId} `, items: [], hidden: false, weights: {}, emoji: emojis[newId % emojis.length], color: colors[newId % colors.length], isImageMode: false, imageStyle: 'contain' }] }));
+        update(s => ({ cats: [...s.cats, { id: newId, name: `項目${newId} `, items: [], hidden: false, weights: {}, emoji: emojis[newId % emojis.length], color: colors[newId % colors.length], isImageMode: false, imageStyle: 'contain', customImageSize: 0 }] }));
     };
 
     const toggleLock = (id) => {
@@ -654,6 +656,10 @@ export default function RandomGenerator({ onSwitchApp }) {
                     enableImageZoom: store.enableImageZoom,
                     keepAspectRatio: store.keepAspectRatio,
                     resultImageSize: store.resultImageSize
+                },
+                wordArranger: {
+                    data: localStorage.getItem('wordArrangerData2') ? JSON.parse(localStorage.getItem('wordArrangerData2')) : null,
+                    slots: localStorage.getItem('wordArrangerSlots2') ? JSON.parse(localStorage.getItem('wordArrangerSlots2')) : null
                 }
             };
 
@@ -791,9 +797,21 @@ export default function RandomGenerator({ onSwitchApp }) {
                     presets: json.presets || store.presets
                 }));
 
+                // Restore Word Arranger data if present
+                if (json.wordArranger) {
+                    if (json.wordArranger.data) {
+                        localStorage.setItem('wordArrangerData2', JSON.stringify(json.wordArranger.data));
+                    }
+                    if (json.wordArranger.slots) {
+                        localStorage.setItem('wordArrangerSlots2', JSON.stringify(json.wordArranger.slots));
+                    }
+                }
+
                 // Update image cache
                 const allImages = await getAllImages(); // Refresh from DB
                 setImageCache(allImages);
+
+
 
                 setModal(null);
                 setTempImport('');
@@ -975,25 +993,37 @@ export default function RandomGenerator({ onSwitchApp }) {
                                             // Image Mode Logic
                                             const isImageMode = cat.isImageMode;
                                             const imageStyle = cat.imageStyle || 'contain';
-                                            const imgStyle = isImageMode ? {
-                                                width: '100%',
-                                                height: imageStyle === 'original' ? 'auto' : '200px',
-                                                objectFit: imageStyle === 'original' ? 'contain' : imageStyle,
-                                                maxHeight: '400px'
-                                            } : {
-                                                width: store.resultImageSize || 40,
-                                                height: store.resultImageSize || 40,
-                                                objectFit: 'cover'
-                                            };
+                                            const customSize = cat.customImageSize && cat.customImageSize > 0 ? cat.customImageSize : (store.resultImageSize || 40);
+
+                                            let imgStyle = {};
+                                            let containerStyle = isImageMode ? "flex flex-col items-center w-full" : "flex items-center w-full gap-2";
+                                            let imgClass = `rounded shadow-sm border border-gray-100 flex-shrink-0 cursor-zoom-in ${isImageMode ? 'mb-1' : ''}`;
+
+                                            if (isImageMode) {
+                                                if (imageStyle === 'original') {
+                                                    imgStyle = { width: '100%', height: 'auto', maxHeight: '400px', objectFit: 'contain' };
+                                                } else if (imageStyle === 'square-contain') {
+                                                    imgStyle = { width: '100%', height: 'auto', aspectRatio: '1/1', objectFit: 'contain', backgroundColor: dark ? '#00000040' : '#f3f4f6' };
+                                                } else { // contain, cover (fixed height 200px equivalent) or fallback
+                                                    imgStyle = { width: '100%', height: '200px', objectFit: imageStyle, maxHeight: '400px' };
+                                                }
+                                            } else {
+                                                // Normal mode
+                                                imgStyle = {
+                                                    width: customSize,
+                                                    height: customSize,
+                                                    objectFit: 'cover'
+                                                };
+                                            }
 
                                             return (
-                                                <div className={isImageMode ? "flex flex-col items-center w-full" : "flex items-center w-full gap-2"}>
+                                                <div className={containerStyle}>
                                                     {imgSrc && (
                                                         <img
                                                             src={imgSrc}
                                                             alt="item"
                                                             style={imgStyle}
-                                                            className={`rounded shadow-sm border border-gray-100 flex-shrink-0 cursor-zoom-in ${isImageMode ? 'mb-1' : ''}`}
+                                                            className={imgClass}
                                                             onClick={(e) => {
                                                                 if (store.enableImageZoom) {
                                                                     e.stopPropagation();
@@ -1375,20 +1405,43 @@ export default function RandomGenerator({ onSwitchApp }) {
                                         </button>
                                     </div>
                                     {tempImageMode && (
-                                        <div className="flex gap-2">
-                                            {[
-                                                { val: 'contain', label: '全体 (Contain)' },
-                                                { val: 'cover', label: '埋め (Cover)' },
-                                                { val: 'original', label: '原寸 (Original)' }
-                                            ].map(opt => (
-                                                <button
-                                                    key={opt.val}
-                                                    onClick={() => setTempImageStyle(opt.val)}
-                                                    className={`flex-1 text-xs py-1 rounded border ${tempImageStyle === opt.val ? 'bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-900/30 dark:border-purple-500 dark:text-purple-300' : 'border-gray-200 dark:border-slate-600 text-gray-500'}`}
-                                                >
-                                                    {opt.label}
-                                                </button>
-                                            ))}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex gap-2">
+                                                {[
+                                                    { val: 'contain', label: '全体' },
+                                                    { val: 'cover', label: '埋め' },
+                                                    { val: 'original', label: '原寸' },
+                                                    { val: 'square-contain', label: '正方形全体' }
+                                                ].map(opt => (
+                                                    <button
+                                                        key={opt.val}
+                                                        onClick={() => setTempImageStyle(opt.val)}
+                                                        className={`flex-1 text-xs py-1 rounded border ${tempImageStyle === opt.val ? 'bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-900/30 dark:border-purple-500 dark:text-purple-300' : 'border-gray-200 dark:border-slate-600 text-gray-500'}`}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {!tempImageMode && (
+                                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-xs text-gray-500">画像サイズ (通常モード)</label>
+                                                <span className="text-xs font-mono">{tempCustomImageSize > 0 ? `${tempCustomImageSize}px` : 'デフォルト'}</span>
+                                            </div>
+                                            <div className="flex gap-2 items-center">
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="300"
+                                                    step="10"
+                                                    value={tempCustomImageSize}
+                                                    onChange={(e) => setTempCustomImageSize(Number(e.target.value))}
+                                                    className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                                                />
+                                                <button onClick={() => setTempCustomImageSize(0)} className="text-xs text-blue-400 hover:text-blue-300">リセット</button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
