@@ -817,9 +817,22 @@ export default function App() {
                     const handleTouchStartItem = (e, item, idx) => {
                         isLongPress.current = false;
                         touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
+                        // Check weight for current item to use in timeout
+                        const w = weights[item] ?? 1;
+                        const isDisabled = w === 0;
+
                         longPressTimer.current = setTimeout(() => {
                             isLongPress.current = true;
-                            setItemMenu({ item, idx, x: e.touches[0].clientX, y: e.touches[0].clientY });
+                            // Long Press Action: Lock/Select
+                            if (!isDisabled) {
+                                update(s => ({
+                                    results: { ...s.results, [cat.id]: item },
+                                    locked: { ...s.locked, [cat.id]: true }
+                                }));
+                                setSelectModal(null);
+                                toast(`「${item}」を選択・固定しました`);
+                            }
                         }, 500);
                     };
 
@@ -848,9 +861,8 @@ export default function App() {
 
                     const handleContextMenu = (e, item, idx) => {
                         e.preventDefault();
-                        if (!isLongPress.current) {
-                            setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
-                        }
+                        // Right click always shows menu
+                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
                     };
 
                     const deleteItem = (itemToDelete) => {
@@ -881,7 +893,7 @@ export default function App() {
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setSelectModal(null); setItemMenu(null); }}>
                             <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`} onClick={e => e.stopPropagation()}>
                                 <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
-                                <p className="text-sm text-gray-500 mb-3">タップで固定 / 長押しでメニュー</p>
+                                <p className="text-sm text-gray-500 mb-3">タップでメニュー / 長押しで固定</p>
                                 <div className="overflow-y-auto flex-1 space-y-2">
                                     {cat.items.map((item, idx) => {
                                         const w = weights[item] ?? 1;
@@ -900,14 +912,8 @@ export default function App() {
                                                             e.stopPropagation();
                                                             return;
                                                         }
-                                                        if (!isDisabled) {
-                                                            update(s => ({
-                                                                results: { ...s.results, [cat.id]: item },
-                                                                locked: { ...s.locked, [cat.id]: true }
-                                                            }));
-                                                            setSelectModal(null);
-                                                            toast(`「${item}」を選択・固定しました`);
-                                                        }
+                                                        // Tap Action: Show Menu
+                                                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
                                                     }}
                                                     className={`flex-1 text-left px-3 py-2 rounded-lg transition select-none ${store.results[cat.id] === item
                                                         ? 'bg-purple-600 text-white'
