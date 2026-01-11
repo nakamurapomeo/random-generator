@@ -273,7 +273,8 @@ export default function WordArranger({ onSwitchApp }) {
                     </div>
                     {selectedIdx !== null && words[selectedIdx] && (
                         <div className="absolute bg-gray-900 rounded-lg p-2 shadow-xl border border-purple-400 z-20" style={{ left: popupPos.x + 'px', top: popupPos.y + 'px', minWidth: '170px' }} onClick={e => e.stopPropagation()}>
-                            <div className="text-xs text-gray-400 mb-1">「{words[selectedIdx].text}」</div>
+                            <button onClick={() => setSelectedIdx(null)} className="absolute top-1 right-1 text-gray-400 hover:text-white text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-gray-700">×</button>
+                            <div className="text-xs text-gray-400 mb-1 pr-5">「{words[selectedIdx].text}」</div>
                             <div className="flex gap-1 mb-1">
                                 <select value={words[selectedIdx].size} onChange={e => updateWord(selectedIdx, 'size', Number(e.target.value))} className="flex-1 text-xs rounded px-1 py-1 bg-gray-700">
                                     {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}px</option>)}
@@ -285,7 +286,6 @@ export default function WordArranger({ onSwitchApp }) {
                             <div className="flex gap-1">
                                 <button onClick={() => duplicateWord(selectedIdx)} className="flex-1 bg-blue-500 hover:bg-blue-600 px-1 py-0.5 rounded text-xs">📋</button>
                                 <button onClick={() => deleteWord(selectedIdx)} className="flex-1 bg-red-500 hover:bg-red-600 px-1 py-0.5 rounded text-xs">🗑</button>
-                                <button onClick={() => setSelectedIdx(null)} className="bg-gray-600 hover:bg-gray-700 px-2 py-0.5 rounded text-xs">×</button>
                             </div>
                         </div>
                     )}

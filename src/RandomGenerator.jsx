@@ -482,7 +482,7 @@ export default function RandomGenerator({ onSwitchApp }) {
                     return { ...oldItemsMap[name], name };
                 }
                 // New item
-                return { name, subItems: [], hasSubItems: false };
+                return { name, subItems: [], hasSubItems: true };
             });
 
             return {
@@ -526,7 +526,7 @@ export default function RandomGenerator({ onSwitchApp }) {
         const emojis = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡'];
         const colors = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4'];
         const newId = store.cats.length > 0 ? Math.max(...store.cats.map(c => c.id)) + 1 : 1;
-        update(s => ({ cats: [...s.cats, { id: newId, name: `項目${newId} `, items: [], hidden: false, weights: {}, emoji: emojis[newId % emojis.length], color: colors[newId % colors.length], isImageMode: false, imageStyle: 'contain', customImageSize: 0 }] }));
+        update(s => ({ cats: [...s.cats, { id: newId, name: `項目${newId}`, items: [], hidden: false, weights: {}, emoji: emojis[newId % emojis.length], color: colors[newId % colors.length], isImageMode: false, imageStyle: 'contain', customImageSize: 0 }] }));
     };
 
     const toggleLock = (id) => {
@@ -940,7 +940,7 @@ export default function RandomGenerator({ onSwitchApp }) {
                                                 onTouchEnd={handleTouchEnd}
                                             >⠿</span>
                                             <span className="text-lg">{cat.emoji || '🎲'}</span>
-                                            <span className="font-medium" style={{ color: cat.color || '#a855f7' }}>{cat.name}</span>
+                                            <span className="font-medium cursor-pointer hover:opacity-70" style={{ color: cat.color || '#a855f7' }} onClick={() => setSelectModal({ cat })}>{cat.name}</span>
                                             {cat.hidden && <span className="text-xs text-gray-500">(非表示)</span>}
                                             <span className="text-xs text-gray-500">{cat.items.length}件</span>
                                         </div>
@@ -951,14 +951,7 @@ export default function RandomGenerator({ onSwitchApp }) {
                                         </div>
                                     </div>
                                     <div
-                                        onClick={(e) => {
-                                            // Only open modal if clicked area is not an image
-                                            if (e.target.tagName !== 'IMG' && cat.items.length > 0) {
-                                                setSelectModal({ cat });
-                                            }
-                                        }}
-                                        className={`min-h-[36px] flex items-center gap-2 rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} text-sm`}
-                                        title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
+                                        className={`min-h-[36px] flex items-center gap-2 rounded-lg px-2 py-1 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} text-sm`}
                                     >
                                         {(() => {
                                             const resultText = store.results[cat.id] || '';
@@ -1367,31 +1360,14 @@ export default function RandomGenerator({ onSwitchApp }) {
 
                     return (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2" onClick={() => setModal(null)}>
-                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-4 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
-                                <h3 className="text-base font-bold mb-3">項目を編集</h3>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-4 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto relative`} onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setModal(null)} className="absolute top-3 right-3 text-gray-400 hover:text-white w-6 h-6 flex items-center justify-center rounded hover:bg-gray-700">×</button>
+                                <h3 className="text-base font-bold mb-3 pr-6">項目を編集</h3>
                                 <div className="mb-2">
                                     <label className="block text-xs text-gray-500 mb-1">項目名</label>
                                     <div className="flex gap-2 items-center">
                                         <span className="text-xl">{tempEmoji}</span>
                                         <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls + ' text-sm py-1'} style={{ color: tempColor }} />
-                                    </div>
-                                </div>
-                                <div className="mb-2">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <label className="text-xs text-gray-500">候補（1行に1つ）</label>
-                                        <button onClick={() => setExpandTextarea(!expandTextarea)} className={btnCls + ' text-xs py-0.5 px-2'}>
-                                            {expandTextarea ? '▲ 縮小' : '▼ 全て表示'}
-                                        </button>
-                                    </div>
-                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={expandTextarea ? 20 : 6} className={inputCls + ' resize-none font-mono text-xs'} spellCheck={false} />
-                                    <div className="text-xs text-gray-500 mt-0.5">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
-                                </div>
-                                <div className="mb-2">
-                                    <label className="block text-xs text-gray-500 mb-1">絵文字</label>
-                                    <div className="flex flex-wrap gap-0.5">
-                                        {emojiOptions.map(e => (
-                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w-7 h-7 text-base rounded ${tempEmoji === e ? 'bg-purple-600 ring-1 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
-                                        ))}
                                     </div>
                                 </div>
                                 <div className="mb-2 p-2 bg-gray-50 dark:bg-slate-800 rounded-lg">
@@ -1446,6 +1422,24 @@ export default function RandomGenerator({ onSwitchApp }) {
                                     )}
                                 </div>
                                 <div className="mb-2">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-xs text-gray-500">候補（1行に1つ）</label>
+                                        <button onClick={() => setExpandTextarea(!expandTextarea)} className={btnCls + ' text-xs py-0.5 px-2'}>
+                                            {expandTextarea ? '▲ 縮小' : '▼ 全て表示'}
+                                        </button>
+                                    </div>
+                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={expandTextarea ? 20 : 6} className={inputCls + ' resize-none font-mono text-xs'} spellCheck={false} />
+                                    <div className="text-xs text-gray-500 mt-0.5">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block text-xs text-gray-500 mb-1">絵文字</label>
+                                    <div className="flex flex-wrap gap-0.5">
+                                        {emojiOptions.map(e => (
+                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w-7 h-7 text-base rounded ${tempEmoji === e ? 'bg-purple-600 ring-1 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="mb-2">
                                     <label className="block text-xs text-gray-500 mb-1">色</label>
                                     <div className="flex flex-wrap gap-1">
                                         {colorOptions.map(c => (
@@ -1459,7 +1453,6 @@ export default function RandomGenerator({ onSwitchApp }) {
                                     <button onClick={deleteCat} className={`${btnCls} text-red-400 text-xs py-1 px-2`}>🗑️ 削除</button>
                                 </div>
                                 <div className="flex justify-end gap-2">
-                                    <button onClick={() => setModal(null)} className={btnCls + ' text-xs py-1'}>キャンセル</button>
                                     <button onClick={saveEditModal} className="px-3 py-1 bg-purple-600 text-white rounded-lg text-xs">保存</button>
                                 </div>
                             </div>
@@ -1684,8 +1677,78 @@ export default function RandomGenerator({ onSwitchApp }) {
                     return (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                             <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`}>
-                                <h3 className="text-lg font-bold mb-2">「{cat.name}」の編集</h3>
-                                <p className="text-sm text-gray-500 mb-3">候補の編集・サブ項目の追加ができます</p>
+                                <button onClick={() => setSelectModal(null)} className="absolute top-3 right-3 text-gray-400 hover:text-white w-6 h-6 flex items-center justify-center rounded hover:bg-gray-700">×</button>
+                                <h3 className="text-lg font-bold mb-2 pr-6">「{cat.name}」の編集</h3>
+
+                                {/* Image Mode Settings at the top */}
+                                <div className={`mb-3 p-2 rounded-lg ${dark ? 'bg-slate-800' : 'bg-gray-50'}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-xs font-bold text-gray-500">画像モード設定</label>
+                                        <button
+                                            onClick={() => {
+                                                update(s => ({
+                                                    cats: s.cats.map(c => c.id === cat.id
+                                                        ? { ...c, isImageMode: !c.isImageMode }
+                                                        : c
+                                                    )
+                                                }));
+                                            }}
+                                            className={`text-xs px-2 py-0.5 rounded ${cat.isImageMode ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-gray-300'}`}
+                                        >
+                                            {cat.isImageMode ? 'ON' : 'OFF'}
+                                        </button>
+                                    </div>
+                                    {cat.isImageMode && (
+                                        <div className="flex gap-2 mb-2">
+                                            {[
+                                                { val: 'contain', label: '全体' },
+                                                { val: 'cover', label: '埋め' },
+                                                { val: 'original', label: '原寸' },
+                                                { val: 'square-contain', label: '正方形' }
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.val}
+                                                    onClick={() => {
+                                                        update(s => ({
+                                                            cats: s.cats.map(c => c.id === cat.id
+                                                                ? { ...c, imageStyle: opt.val }
+                                                                : c
+                                                            )
+                                                        }));
+                                                    }}
+                                                    className={`flex-1 text-xs py-1 rounded border ${(cat.imageStyle || 'contain') === opt.val ? 'bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-900/30 dark:border-purple-500 dark:text-purple-300' : 'border-gray-200 dark:border-slate-600 text-gray-500'}`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {!cat.isImageMode && (
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-500">画像サイズ</label>
+                                            <select
+                                                value={cat.customImageSize || 0}
+                                                onChange={(e) => {
+                                                    update(s => ({
+                                                        cats: s.cats.map(c => c.id === cat.id
+                                                            ? { ...c, customImageSize: Number(e.target.value) }
+                                                            : c
+                                                        )
+                                                    }));
+                                                }}
+                                                className={`text-xs px-2 py-1 rounded ${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border`}
+                                            >
+                                                <option value={0}>デフォルト</option>
+                                                <option value={40}>40px</option>
+                                                <option value={80}>80px</option>
+                                                <option value={120}>120px</option>
+                                                <option value={200}>200px</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <p className="text-sm text-gray-500 mb-2">候補の編集・サブ項目の追加ができます</p>
                                 <div className="overflow-y-auto flex-1 space-y-2">
                                     {cat.items.map((item, idx) => {
                                         const itemName = getItemName(item);
@@ -1957,7 +2020,7 @@ export default function RandomGenerator({ onSwitchApp }) {
                                             if (e.key === 'Enter' && tempNewItem.trim()) {
                                                 update(s => ({
                                                     cats: s.cats.map(c => c.id === cat.id
-                                                        ? { ...c, items: [...c.items, { name: tempNewItem.trim(), subItems: [], hasSubItems: false }] }
+                                                        ? { ...c, items: [...c.items, { name: tempNewItem.trim(), subItems: [], hasSubItems: true }] }
                                                         : c
                                                     )
                                                 }));
@@ -1972,7 +2035,7 @@ export default function RandomGenerator({ onSwitchApp }) {
                                             if (tempNewItem.trim()) {
                                                 update(s => ({
                                                     cats: s.cats.map(c => c.id === cat.id
-                                                        ? { ...c, items: [...c.items, { name: tempNewItem.trim(), subItems: [], hasSubItems: false }] }
+                                                        ? { ...c, items: [...c.items, { name: tempNewItem.trim(), subItems: [], hasSubItems: true }] }
                                                         : c
                                                     )
                                                 }));
