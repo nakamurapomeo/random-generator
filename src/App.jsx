@@ -20,8 +20,9 @@ const INIT_DATA = {
     compactMode: false,
     showHistoryTime: true,
     showRestoreButton: true,
-    resultFontSize: 'normal',
-    mainResultFontSize: 'normal'
+    resultFontSize: 'normal', // small, normal, large
+    mainResultFontSize: 'normal',
+    showHiddenControl: true, // Default to true so restored weights are visible
 };
 
 // Helper function for weighted random selection
@@ -300,7 +301,8 @@ export default function App() {
                 showHistoryTime: store.showHistoryTime,
                 showRestoreButton: store.showRestoreButton,
                 resultFontSize: store.resultFontSize,
-                mainResultFontSize: store.mainResultFontSize
+                mainResultFontSize: store.mainResultFontSize,
+                showHiddenControl: store.showHiddenControl
             }
         };
         const str = JSON.stringify(exportData, null, 2);
@@ -468,7 +470,9 @@ export default function App() {
                                         </div>
                                         <div className="flex gap-1">
                                             <button onClick={() => toggleLock(cat.id)} className={`p-1.5 rounded-lg text-sm ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
-                                            <button onClick={() => update(s => ({ cats: s.cats.map(c => c.id === cat.id ? { ...c, hidden: !c.hidden } : c) }))} className={btnCls + ' text-gray-500'}>{cat.hidden ? '👁' : '🙈'}</button>
+                                            {store.showHiddenControl && (
+                                                <button onClick={() => update(s => ({ cats: s.cats.map(c => c.id === cat.id ? { ...c, hidden: !c.hidden } : c) }))} className={btnCls + ' text-gray-500'}>{cat.hidden ? '👁' : '🙈'}</button>
+                                            )}
                                             <button onClick={() => { if (confirm('削除しますか？')) update(s => ({ cats: s.cats.filter(c => c.id !== cat.id) })); }} className={btnCls + ' text-red-400'}>🗑️</button>
                                             <button onClick={() => openEditModal(cat)} className={btnCls + ' text-gray-400'}>✏️</button>
                                         </div>
@@ -629,6 +633,12 @@ export default function App() {
                                 </div>
                                 <button onClick={() => update(s => ({ noRepeat: !s.noRepeat }))} className={`w-12 h-6 rounded-full transition ${store.noRepeat ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
                                     <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.noRepeat ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex justify-between items-center mb-3">
+                                <span>非表示ボタン（カード）</span>
+                                <button onClick={() => update(s => ({ showHiddenControl: !s.showHiddenControl }))} className={`${btnCls} ${store.showHiddenControl ? 'bg-purple-600 text-white' : ''}`}>
+                                    {store.showHiddenControl ? '表示' : '非表示'}
                                 </button>
                             </div>
                             <div className="flex items-center justify-between mb-3">
@@ -912,58 +922,79 @@ export default function App() {
                     };
 
                     return (
-                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setSelectModal(null); setItemMenu(null); }}>
-                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`} onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`}>
                                 <h3 className="text-lg font-bold mb-2">「{cat.name}」の編集</h3>
                                 <p className="text-sm text-gray-500 mb-3">候補の内容を直接編集できます</p>
                                 <div className="overflow-y-auto flex-1 space-y-2">
                                     {cat.items.map((item, idx) => {
                                         const w = weights[item] ?? 1;
-                                        const isDisabled = w === 0;
                                         const isLocked = store.results[cat.id] === item;
                                         return (
                                             <div key={idx} className={`flex items-center gap-2 rounded-lg p-2 ${isLocked ? 'ring-2 ring-purple-500 bg-purple-500/10' : ''}`}>
-                                                <input
-                                                    type="text"
-                                                    value={item}
-                                                    onChange={(e) => {
-                                                        const newItem = e.target.value;
-                                                        update(s => ({
-                                                            cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((old, i) => i === idx ? newItem : old) } : c)
-                                                        }));
-                                                    }}
-                                                    className={`flex-1 bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition ${dark ? 'border-gray-600' : ''}`}
-                                                />
-                                                <button
-                                                    onClick={() => {
-                                                        update(s => ({
-                                                            results: { ...s.results, [cat.id]: item },
-                                                            locked: { ...s.locked, [cat.id]: true }
-                                                        }));
-                                                        // Require explicit close if desired, or stay open to manage?
-                                                        // User said "edit content", so staying open is better for bulk edits.
-                                                        // But locking usually implies done. Let's keep it open or just toggle lock?
-                                                        // "Tap to fix is not needed" -> Maybe just toggle lock status without closing?
-                                                        // Let's make it a toggle button.
-                                                    }}
-                                                    className={`p-2 rounded-lg shrink-0 ${isLocked ? 'text-purple-500 bg-purple-100 dark:bg-purple-900/30' : 'text-gray-400 hover:text-purple-500'}`}
-                                                    title="この候補で固定"
-                                                >
-                                                    {isLocked ? '🔒' : '🔓'}
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        if (confirm('削除しますか？')) {
+                                                <div className="flex flex-col flex-1 min-w-0">
+                                                    <input
+                                                        type="text"
+                                                        value={item}
+                                                        onChange={(e) => {
+                                                            const newItem = e.target.value;
                                                             update(s => ({
-                                                                cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter((_, i) => i !== idx) } : c)
+                                                                cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((old, i) => i === idx ? newItem : old) } : c)
                                                             }));
-                                                        }
-                                                    }}
-                                                    className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg shrink-0"
-                                                    title="削除"
-                                                >
-                                                    🗑️
-                                                </button>
+                                                        }}
+                                                        className={`bg-transparent border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1 transition w-full ${dark ? 'border-gray-600' : ''}`}
+                                                    />
+                                                    {store.showWeightIndicator && (
+                                                        <div className="flex items-center gap-1 mt-1">
+                                                            <span className="text-xs text-gray-500">重み:</span>
+                                                            <button onClick={() => updateWeight(item, -1)} className="px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 transform active:scale-95 transition">-</button>
+                                                            <span className={`text-xs font-bold w-4 text-center ${w === 0 ? 'text-red-400' : ''}`}>{w}</span>
+                                                            <button onClick={() => updateWeight(item, 1)} className="px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 transform active:scale-95 transition">+</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-1 shrink-0">
+                                                    <button
+                                                        onClick={() => {
+                                                            // Duplicate
+                                                            update(s => ({
+                                                                cats: s.cats.map(c => c.id === cat.id
+                                                                    ? { ...c, items: [...c.items.slice(0, idx + 1), item, ...c.items.slice(idx + 1)] }
+                                                                    : c)
+                                                            }));
+                                                            toast('複製しました');
+                                                        }}
+                                                        className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                                                        title="複製"
+                                                    >
+                                                        📄
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            update(s => ({
+                                                                results: { ...s.results, [cat.id]: item },
+                                                                locked: { ...s.locked, [cat.id]: true }
+                                                            }));
+                                                        }}
+                                                        className={`p-2 rounded-lg ${isLocked ? 'text-purple-500 bg-purple-100 dark:bg-purple-900/30' : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
+                                                        title="この候補で固定"
+                                                    >
+                                                        {isLocked ? '🔒' : '🔓'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm('削除しますか？')) {
+                                                                update(s => ({
+                                                                    cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter((_, i) => i !== idx) } : c)
+                                                                }));
+                                                            }
+                                                        }}
+                                                        className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                                                        title="削除"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
                                             </div>
                                         );
                                     })}
