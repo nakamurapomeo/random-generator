@@ -311,673 +311,671 @@ export default function App() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        URL.revokeObjectURL(url);
         toast('バックアップを保存・コピーしました');
     };
-    URL.revokeObjectURL(url);
-    toast('ダウンロード完了');
-};
 
-const doImport = () => {
-    const txt = tempImport.trim();
-    if (!txt) return;
-    try {
-        const json = JSON.parse(txt);
-        if (json.cats) {
-            update(() => ({ cats: json.cats.map(c => ({ ...c, hidden: c.hidden || false })), presets: json.presets || store.presets }));
+    const doImport = () => {
+        const txt = tempImport.trim();
+        if (!txt) return;
+        try {
+            const json = JSON.parse(txt);
+            if (json.cats) {
+                update(() => ({ cats: json.cats.map(c => ({ ...c, hidden: c.hidden || false })), presets: json.presets || store.presets }));
+                setModal(null);
+                setTempImport('');
+                toast('インポート完了');
+                return;
+            }
+        } catch { }
+        const blocks = txt.split(/\n\n+/);
+        const newCats = blocks.map((block, idx) => {
+            const lines = block.split('\n').filter(l => l.trim());
+            if (lines.length === 0) return null;
+            const headerMatch = lines[0].match(/^\[(.+?)\](\s*\(非表示\))?$/);
+            const name = headerMatch ? headerMatch[1] : `項目${idx + 1}`;
+            const hidden = headerMatch ? !!headerMatch[2] : false;
+            const items = headerMatch ? lines.slice(1) : lines;
+            return { id: Date.now() + idx, name, items: items.filter(Boolean), hidden };
+        }).filter(Boolean);
+        if (newCats.length > 0) {
+            update(() => ({ cats: newCats }));
             setModal(null);
             setTempImport('');
             toast('インポート完了');
-            return;
         }
-    } catch { }
-    const blocks = txt.split(/\n\n+/);
-    const newCats = blocks.map((block, idx) => {
-        const lines = block.split('\n').filter(l => l.trim());
-        if (lines.length === 0) return null;
-        const headerMatch = lines[0].match(/^\[(.+?)\](\s*\(非表示\))?$/);
-        const name = headerMatch ? headerMatch[1] : `項目${idx + 1}`;
-        const hidden = headerMatch ? !!headerMatch[2] : false;
-        const items = headerMatch ? lines.slice(1) : lines;
-        return { id: Date.now() + idx, name, items: items.filter(Boolean), hidden };
-    }).filter(Boolean);
-    if (newCats.length > 0) {
-        update(() => ({ cats: newCats }));
-        setModal(null);
-        setTempImport('');
-        toast('インポート完了');
-    }
-};
-
-const savePreset = () => {
-    if (!tempPreset.trim()) return;
-    const snapshot = {
-        id: Date.now(),
-        name: tempPreset,
-        cats: JSON.parse(JSON.stringify(store.cats)),
-        results: { ...store.results },
-        locked: { ...store.locked }
     };
-    update(s => ({
-        presets: [...s.presets, snapshot],
-        selectedPresetId: snapshot.id
-    }));
-    setTempPreset('');
-    toast('プリセット保存');
-};
 
-const loadPreset = (p) => {
-    update(() => ({
-        cats: JSON.parse(JSON.stringify(p.cats)),
-        results: p.results ? { ...p.results } : {},
-        locked: p.locked ? { ...p.locked } : {},
-        selectedPresetId: p.id
-    }));
-    toast('読み込みました');
-};
+    const savePreset = () => {
+        if (!tempPreset.trim()) return;
+        const snapshot = {
+            id: Date.now(),
+            name: tempPreset,
+            cats: JSON.parse(JSON.stringify(store.cats)),
+            results: { ...store.results },
+            locked: { ...store.locked }
+        };
+        update(s => ({
+            presets: [...s.presets, snapshot],
+            selectedPresetId: snapshot.id
+        }));
+        setTempPreset('');
+        toast('プリセット保存');
+    };
 
-const delPreset = (id) => {
-    update(s => ({ presets: s.presets.filter(p => p.id !== id) }));
-};
+    const loadPreset = (p) => {
+        update(() => ({
+            cats: JSON.parse(JSON.stringify(p.cats)),
+            results: p.results ? { ...p.results } : {},
+            locked: p.locked ? { ...p.locked } : {},
+            selectedPresetId: p.id
+        }));
+        toast('読み込みました');
+    };
 
-const clearAll = (type) => {
-    update(() => ({ [type]: [] }));
-    toast('削除しました');
-};
+    const delPreset = (id) => {
+        update(s => ({ presets: s.presets.filter(p => p.id !== id) }));
+    };
 
-const dark = store.dark;
-const bg = dark ? 'min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 text-gray-100' : 'min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-gray-100 text-gray-900';
-const cardCls = dark ? 'bg-slate-800/60 border border-slate-700/50 rounded-xl' : 'bg-white/80 border border-gray-200 rounded-xl shadow-sm';
-const btnCls = dark ? 'bg-slate-700/80 hover:bg-slate-600/80 rounded-lg px-3 py-1.5 text-sm transition' : 'bg-gray-100 hover:bg-gray-200 rounded-lg px-3 py-1.5 text-sm transition';
-const inputCls = dark ? 'w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500' : 'w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500';
+    const clearAll = (type) => {
+        update(() => ({ [type]: [] }));
+        toast('削除しました');
+    };
 
-const hiddenCount = store.cats.filter(c => c.hidden).length;
-const displayCats = store.showHidden ? store.cats : visibleCats;
+    const dark = store.dark;
+    const bg = dark ? 'min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 text-gray-100' : 'min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-gray-100 text-gray-900';
+    const cardCls = dark ? 'bg-slate-800/60 border border-slate-700/50 rounded-xl' : 'bg-white/80 border border-gray-200 rounded-xl shadow-sm';
+    const btnCls = dark ? 'bg-slate-700/80 hover:bg-slate-600/80 rounded-lg px-3 py-1.5 text-sm transition' : 'bg-gray-100 hover:bg-gray-200 rounded-lg px-3 py-1.5 text-sm transition';
+    const inputCls = dark ? 'w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500' : 'w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500';
 
-return (
-    <div className={bg + ' p-4'}>
-        {msg && <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-6 py-2 rounded-full shadow-lg z-50 text-sm">{msg}</div>}
+    const hiddenCount = store.cats.filter(c => c.hidden).length;
+    const displayCats = store.showHidden ? store.cats : visibleCats;
 
-        <div className="max-w-lg mx-auto">
-            <div className="flex items-center justify-between mb-4">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">ランダムジェネレーター</h1>
-                <button onClick={() => update(s => ({ dark: !s.dark }))} className={btnCls}>{dark ? '☀️' : '🌙'}</button>
-            </div>
+    return (
+        <div className={bg + ' p-4'}>
+            {msg && <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-6 py-2 rounded-full shadow-lg z-50 text-sm">{msg}</div>}
 
-            <div className="flex flex-wrap gap-2 justify-center mb-5">
-                {[['main', '🎲メイン'], ['history', '📜履歴'], ['favs', '⭐お気に入り'], ['presets', '📁プリセット'], ['settings', '⚙️設定']].map(([k, label]) => (
-                    <button key={k} onClick={() => setPage(k)} className={`px-3 py-1.5 rounded-full text-sm transition ${page === k ? 'bg-purple-600 text-white' : btnCls}`}>{label}</button>
-                ))}
-            </div>
+            <div className="max-w-lg mx-auto">
+                <div className="flex items-center justify-between mb-4">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">ランダムジェネレーター</h1>
+                    <button onClick={() => update(s => ({ dark: !s.dark }))} className={btnCls}>{dark ? '☀️' : '🌙'}</button>
+                </div>
 
-            {page === 'main' && (
-                <>
-                    {store.presets.length > 0 && (
-                        <div className="mb-3 flex gap-2">
-                            <select
-                                value={store.selectedPresetId || ''}
-                                onChange={(e) => {
-                                    const id = Number(e.target.value);
-                                    if (id) {
-                                        const p = store.presets.find(p => p.id === id);
-                                        if (p) loadPreset(p);
-                                    }
-                                }}
-                                className={`flex-1 ${inputCls}`}
-                            >
-                                <option value="">📁 プリセットを選択...</option>
-                                {store.presets.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
-                            <button onClick={() => setTempPreset('') || setPage('presets')} className="px-4 bg-purple-600 text-white rounded-lg whitespace-nowrap">
-                                ＋追加
-                            </button>
-                        </div>
-                    )}
-                    {hiddenCount > 0 && (
-                        <div className="flex justify-end mb-2">
-                            <button onClick={() => update(s => ({ showHidden: !s.showHidden }))} className={`text-xs ${btnCls}`}>
-                                {store.showHidden ? '🙈 非表示を隠す' : `👁 非表示を表示 (${hiddenCount})`}
-                            </button>
-                        </div>
-                    )}
-                    <div className="space-y-3 mb-5">
-                        {displayCats.map((cat) => (
-                            <div
-                                key={cat.id}
-                                data-catid={cat.id}
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, cat.id)}
-                                onDragEnd={handleDragEnd}
-                                onDragOver={(e) => handleDragOver(e, cat.id)}
-                                onTouchStart={() => handleTouchStart(cat.id)}
-                                onTouchMove={(e) => handleTouchMove(e, displayCats)}
-                                onTouchEnd={handleTouchEnd}
-                                className={`${store.compactMode ? 'p-2' : 'p-3'} rounded-xl ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} cursor-grab active:cursor-grabbing ${dark ? 'bg-slate-800/60' : 'bg-white/80 shadow-sm'}`}
-                                style={{ borderLeft: `4px solid ${cat.color || '#a855f7'}` }}
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-gray-400 cursor-grab">⠿</span>
-                                        <span className="text-lg">{cat.emoji || '🎲'}</span>
-                                        <span className="font-medium" style={{ color: cat.color || '#a855f7' }}>{cat.name}</span>
-                                        {cat.hidden && <span className="text-xs text-gray-500">(非表示)</span>}
-                                        <span className="text-xs text-gray-500">{cat.items.length}件</span>
+                <div className="flex flex-wrap gap-2 justify-center mb-5">
+                    {[['main', '🎲メイン'], ['history', '📜履歴'], ['favs', '⭐お気に入り'], ['presets', '📁プリセット'], ['settings', '⚙️設定']].map(([k, label]) => (
+                        <button key={k} onClick={() => setPage(k)} className={`px-3 py-1.5 rounded-full text-sm transition ${page === k ? 'bg-purple-600 text-white' : btnCls}`}>{label}</button>
+                    ))}
+                </div>
+
+                {page === 'main' && (
+                    <>
+                        {store.presets.length > 0 && (
+                            <div className="mb-3 flex gap-2">
+                                <select
+                                    value={store.selectedPresetId || ''}
+                                    onChange={(e) => {
+                                        const id = Number(e.target.value);
+                                        if (id) {
+                                            const p = store.presets.find(p => p.id === id);
+                                            if (p) loadPreset(p);
+                                        }
+                                    }}
+                                    className={`flex-1 ${inputCls}`}
+                                >
+                                    <option value="">📁 プリセットを選択...</option>
+                                    {store.presets.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                                <button onClick={() => setTempPreset('') || setPage('presets')} className="px-4 bg-purple-600 text-white rounded-lg whitespace-nowrap">
+                                    ＋追加
+                                </button>
+                            </div>
+                        )}
+                        {hiddenCount > 0 && (
+                            <div className="flex justify-end mb-2">
+                                <button onClick={() => update(s => ({ showHidden: !s.showHidden }))} className={`text-xs ${btnCls}`}>
+                                    {store.showHidden ? '🙈 非表示を隠す' : `👁 非表示を表示 (${hiddenCount})`}
+                                </button>
+                            </div>
+                        )}
+                        <div className="space-y-3 mb-5">
+                            {displayCats.map((cat) => (
+                                <div
+                                    key={cat.id}
+                                    data-catid={cat.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, cat.id)}
+                                    onDragEnd={handleDragEnd}
+                                    onDragOver={(e) => handleDragOver(e, cat.id)}
+                                    onTouchStart={() => handleTouchStart(cat.id)}
+                                    onTouchMove={(e) => handleTouchMove(e, displayCats)}
+                                    onTouchEnd={handleTouchEnd}
+                                    className={`${store.compactMode ? 'p-2' : 'p-3'} rounded-xl ${cat.hidden ? 'opacity-50' : ''} ${dragOverId === cat.id && dragId !== cat.id ? 'ring-2 ring-purple-500' : ''} cursor-grab active:cursor-grabbing ${dark ? 'bg-slate-800/60' : 'bg-white/80 shadow-sm'}`}
+                                    style={{ borderLeft: `4px solid ${cat.color || '#a855f7'}` }}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 cursor-grab">⠿</span>
+                                            <span className="text-lg">{cat.emoji || '🎲'}</span>
+                                            <span className="font-medium" style={{ color: cat.color || '#a855f7' }}>{cat.name}</span>
+                                            {cat.hidden && <span className="text-xs text-gray-500">(非表示)</span>}
+                                            <span className="text-xs text-gray-500">{cat.items.length}件</span>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => toggleLock(cat.id)} className={`p-1.5 rounded-lg text-sm ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
+                                            <button onClick={() => update(s => ({ cats: s.cats.map(c => c.id === cat.id ? { ...c, hidden: !c.hidden } : c) }))} className={btnCls + ' text-gray-500'}>{cat.hidden ? '👁' : '🙈'}</button>
+                                            <button onClick={() => { if (confirm('削除しますか？')) update(s => ({ cats: s.cats.filter(c => c.id !== cat.id) })); }} className={btnCls + ' text-red-400'}>🗑️</button>
+                                            <button onClick={() => openEditModal(cat)} className={btnCls + ' text-gray-400'}>✏️</button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-1">
-                                        <button onClick={() => toggleLock(cat.id)} className={`p-1.5 rounded-lg text-sm ${store.locked[cat.id] ? 'bg-amber-500/30 text-amber-400' : btnCls}`}>{store.locked[cat.id] ? '🔒' : '🔓'}</button>
-                                        <button onClick={() => update(s => ({ cats: s.cats.map(c => c.id === cat.id ? { ...c, hidden: !c.hidden } : c) }))} className={btnCls + ' text-gray-500'}>{cat.hidden ? '👁' : '🙈'}</button>
-                                        <button onClick={() => { if (confirm('削除しますか？')) update(s => ({ cats: s.cats.filter(c => c.id !== cat.id) })); }} className={btnCls + ' text-red-400'}>🗑️</button>
-                                        <button onClick={() => openEditModal(cat)} className={btnCls + ' text-gray-400'}>✏️</button>
+                                    <div
+                                        onClick={() => cat.items.length > 0 && setSelectModal({ cat })}
+                                        className={`min-h-[44px] flex items-center justify-center rounded-lg px-3 py-2 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} ${store.mainResultFontSize === 'small' ? 'text-sm' : store.mainResultFontSize === 'large' ? 'text-2xl' : 'text-lg'}`}
+                                        title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
+                                    >
+                                        {store.results[cat.id] || <span className="text-gray-500 text-base">---</span>}
                                     </div>
                                 </div>
-                                <div
-                                    onClick={() => cat.items.length > 0 && setSelectModal({ cat })}
-                                    className={`min-h-[44px] flex items-center justify-center rounded-lg px-3 py-2 ${dark ? 'bg-slate-900/60' : 'bg-gray-100'} ${spin ? 'animate-pulse' : ''} ${cat.items.length > 0 ? 'cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition' : ''} ${store.mainResultFontSize === 'small' ? 'text-sm' : store.mainResultFontSize === 'large' ? 'text-2xl' : 'text-lg'}`}
-                                    title={cat.items.length > 0 ? 'クリックして候補を選択' : ''}
-                                >
-                                    {store.results[cat.id] || <span className="text-gray-500 text-base">---</span>}
+                            ))}
+                            <button onClick={addCat} className={`w-full py-3 mb-20 border-2 border-dashed ${dark ? 'border-slate-700 text-slate-500 hover:bg-slate-800' : 'border-gray-300 text-gray-400 hover:bg-gray-50'} rounded-xl transition flex items-center justify-center gap-2`}>
+                                <span>＋ 項目を追加</span>
+                            </button>
+                        </div>
+
+                        <div className={`fixed bottom-0 left-0 right-0 p-4 ${dark ? 'bg-slate-900/90 border-t border-slate-700' : 'bg-white/90 border-t border-gray-200'} backdrop-blur-md z-40`}>
+                            <div className="max-w-lg mx-auto">
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={doGenerate} disabled={spin} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50">
+                                        {spin ? '...' : '🎲 生成'}
+                                    </button>
+                                    <div className="flex flex-wrap gap-2 justify-center items-center">
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={() => setGenCount(Math.max(1, genCount - 1))} className={btnCls}>−</button>
+                                            <span className="w-8 text-center text-sm">{genCount}回</span>
+                                            <button onClick={() => setGenCount(Math.min(10, genCount + 1))} className={btnCls}>＋</button>
+                                        </div>
+                                        <button onClick={addFav} className={btnCls}>⭐ お気に入り</button>
+                                        <button onClick={copyResult} className={btnCls}>📋 コピー</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 justify-center pb-20">
+                            <button onClick={doExportText} className={btnCls}>📤コピー</button>
+                            <button onClick={doExportJSON} className={btnCls}>💾JSON</button>
+                            <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={btnCls}>📥インポート</button>
+                        </div>
+                    </>
+                )}
+
+                {page === 'history' && (
+                    <div className="space-y-2">
+                        {store.history.length > 0 && (
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm text-gray-500">{store.history.length}件</span>
+                                <button onClick={() => clearAll('history')} className="text-sm text-red-400">全削除</button>
+                            </div>
+                        )}
+                        {store.history.length === 0 && <p className="text-center text-gray-500 py-8">履歴なし</p>}
+                        {store.history.map(h => {
+                            const resultSize = store.resultFontSize === 'small' ? 'text-xs' : store.resultFontSize === 'large' ? 'text-base' : 'text-sm';
+                            return (
+                                <div key={h.id} className={cardCls + ' p-3'}>
+                                    {store.showHistoryTime && <div className="text-xs text-gray-500 mb-1">{h.time}</div>}
+                                    {Object.entries(h.res).map(([id, val]) => {
+                                        const cat = store.cats.find(c => c.id === Number(id));
+                                        const color = cat?.color || '#a855f7';
+                                        return val && (
+                                            <div key={id} className={resultSize}>
+                                                <span style={{ color }}>{h.names[id]}:</span> {val}
+                                            </div>
+                                        );
+                                    })}
+                                    {store.showRestoreButton && (
+                                        <button onClick={() => restoreRes(h.res)} className="text-xs text-purple-400 mt-2">↩️復元</button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {page === 'favs' && (
+                    <div className="space-y-2">
+                        {store.favs.length > 0 && (
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm text-gray-500">{store.favs.length}件</span>
+                                <button onClick={() => clearAll('favs')} className="text-sm text-red-400">全削除</button>
+                            </div>
+                        )}
+                        {store.favs.length === 0 && <p className="text-center text-gray-500 py-8">お気に入りなし</p>}
+                        {store.favs.map(f => {
+                            const resultSize = store.resultFontSize === 'small' ? 'text-xs' : store.resultFontSize === 'large' ? 'text-base' : 'text-sm';
+                            return (
+                                <div key={f.id} className={cardCls + ' p-3'}>
+                                    {store.showHistoryTime && <div className="text-xs text-gray-500 mb-1">{f.time}</div>}
+                                    {Object.entries(f.res).map(([id, val]) => {
+                                        const cat = store.cats.find(c => c.id === Number(id));
+                                        const color = cat?.color || '#a855f7';
+                                        return val && (
+                                            <div key={id} className={resultSize}>
+                                                <span style={{ color }}>{f.names[id]}:</span> {val}
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="flex gap-3 mt-2">
+                                        {store.showRestoreButton && (
+                                            <button onClick={() => restoreRes(f.res)} className="text-xs text-purple-400">↩️復元</button>
+                                        )}
+                                        <button onClick={() => update(s => ({ favs: s.favs.filter(x => x.id !== f.id) }))} className="text-xs text-red-400">🗑️削除</button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {page === 'presets' && (
+                    <div className="space-y-3">
+                        <div className="flex gap-2">
+                            <input type="text" value={tempPreset} onChange={e => setTempPreset(e.target.value)} placeholder="プリセット名" className={inputCls} />
+                            <button onClick={savePreset} className="px-4 py-2 bg-purple-600 text-white rounded-lg shrink-0">保存</button>
+                        </div>
+                        {store.presets.length === 0 && <p className="text-center text-gray-500 py-8">プリセットなし</p>}
+                        {store.presets.map(p => (
+                            <div key={p.id} className={cardCls + ' p-3 flex justify-between items-center'}>
+                                <div>
+                                    <div className="font-medium">{p.name}</div>
+                                    <div className="text-xs text-gray-500">{p.cats.length}項目</div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => update(s => {
+                                        const idx = s.presets.findIndex(x => x.id === p.id);
+                                        if (idx <= 0) return s;
+                                        const newPresets = [...s.presets];
+                                        [newPresets[idx - 1], newPresets[idx]] = [newPresets[idx], newPresets[idx - 1]];
+                                        return { presets: newPresets };
+                                    })} className="text-gray-400 hover:text-purple-600">↑</button>
+                                    <button onClick={() => update(s => {
+                                        const idx = s.presets.findIndex(x => x.id === p.id);
+                                        if (idx < 0 || idx >= s.presets.length - 1) return s;
+                                        const newPresets = [...s.presets];
+                                        [newPresets[idx], newPresets[idx + 1]] = [newPresets[idx + 1], newPresets[idx]];
+                                        return { presets: newPresets };
+                                    })} className="text-gray-400 hover:text-purple-600">↓</button>
+                                    <button onClick={() => loadPreset(p)} className="px-3 py-1 bg-purple-600/60 text-white rounded text-sm">読込</button>
+                                    <button onClick={() => delPreset(p.id)} className="text-red-400 text-sm">🗑️</button>
                                 </div>
                             </div>
                         ))}
-                        <button onClick={addCat} className={`w-full py-3 mb-20 border-2 border-dashed ${dark ? 'border-slate-700 text-slate-500 hover:bg-slate-800' : 'border-gray-300 text-gray-400 hover:bg-gray-50'} rounded-xl transition flex items-center justify-center gap-2`}>
-                            <span>＋ 項目を追加</span>
-                        </button>
                     </div>
+                )}
 
-                    <div className={`fixed bottom-0 left-0 right-0 p-4 ${dark ? 'bg-slate-900/90 border-t border-slate-700' : 'bg-white/90 border-t border-gray-200'} backdrop-blur-md z-40`}>
-                        <div className="max-w-lg mx-auto">
-                            <div className="flex flex-col gap-3">
-                                <button onClick={doGenerate} disabled={spin} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50">
-                                    {spin ? '...' : '🎲 生成'}
+                {page === 'settings' && (
+                    <div className="space-y-3 pb-20">
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">生成オプション</h3>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>連続重複を防ぐ</span>
+                                    <p className="text-xs text-gray-500">同じ結果が連続しない</p>
+                                </div>
+                                <button onClick={() => update(s => ({ noRepeat: !s.noRepeat }))} className={`w-12 h-6 rounded-full transition ${store.noRepeat ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.noRepeat ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
-                                <div className="flex flex-wrap gap-2 justify-center items-center">
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => setGenCount(Math.max(1, genCount - 1))} className={btnCls}>−</button>
-                                        <span className="w-8 text-center text-sm">{genCount}回</span>
-                                        <button onClick={() => setGenCount(Math.min(10, genCount + 1))} className={btnCls}>＋</button>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>生成アニメーション</span>
+                                    <p className="text-xs text-gray-500">ONで0.3秒の演出あり</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showAnimation: !s.showAnimation }))} className={`w-12 h-6 rounded-full transition ${store.showAnimation ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showAnimation ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span>重み表示</span>
+                                    <p className="text-xs text-gray-500">選択画面で重みを表示</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showWeightIndicator: !s.showWeightIndicator }))} className={`w-12 h-6 rounded-full transition ${store.showWeightIndicator ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showWeightIndicator ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">表示オプション</h3>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>ダークモード</span>
+                                    <p className="text-xs text-gray-500">目に優しい暗い配色</p>
+                                </div>
+                                <button onClick={() => update(s => ({ dark: !s.dark }))} className={`w-12 h-6 rounded-full transition ${dark ? 'bg-purple-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>コンパクトモード</span>
+                                    <p className="text-xs text-gray-500">項目カードを小さく</p>
+                                </div>
+                                <button onClick={() => update(s => ({ compactMode: !s.compactMode }))} className={`w-12 h-6 rounded-full transition ${store.compactMode ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.compactMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>履歴に時間を表示</span>
+                                    <p className="text-xs text-gray-500">生成日時を表示</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showHistoryTime: !s.showHistoryTime }))} className={`w-12 h-6 rounded-full transition ${store.showHistoryTime ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showHistoryTime ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span>復元ボタンを表示</span>
+                                    <p className="text-xs text-gray-500">履歴から復元可能に</p>
+                                </div>
+                                <button onClick={() => update(s => ({ showRestoreButton: !s.showRestoreButton }))} className={`w-12 h-6 rounded-full transition ${store.showRestoreButton ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showRestoreButton ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span>結果の文字サイズ (履歴)</span>
+                                    <p className="text-xs text-gray-500">履歴・お気に入りの表示</p>
+                                </div>
+                                <select
+                                    value={store.resultFontSize}
+                                    onChange={(e) => update(() => ({ resultFontSize: e.target.value }))}
+                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
+                                >
+                                    <option value="small">小</option>
+                                    <option value="normal">中</option>
+                                    <option value="large">大</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center justify-between mt-3">
+                                <div>
+                                    <span>結果の文字サイズ (メイン)</span>
+                                    <p className="text-xs text-gray-500">生成結果の表示</p>
+                                </div>
+                                <select
+                                    value={store.mainResultFontSize}
+                                    onChange={(e) => update(() => ({ mainResultFontSize: e.target.value }))}
+                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
+                                >
+                                    <option value="small">小</option>
+                                    <option value="normal">中</option>
+                                    <option value="large">大</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">データ</h3>
+                            <button onClick={doExportJSON} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>💾 JSONバックアップ</button>
+                            <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>📥 インポート</button>
+                            <button onClick={() => { setStore(INIT_DATA); toast('リセット完了'); }} className={`w-full text-left p-2 rounded-lg text-red-400 ${btnCls}`}>🗑️ 全データリセット</button>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-2">統計</h3>
+                            <div className="text-sm text-gray-500 space-y-1">
+                                <div>項目数: {store.cats.length} ({hiddenCount}件非表示)</div>
+                                <div>総候補数: {store.cats.reduce((a, c) => a + c.items.length, 0)}</div>
+                                <div>履歴: {store.history.length}件</div>
+                                <div>お気に入り: {store.favs.length}件</div>
+                                <div>プリセット: {store.presets.length}件</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {modal?.type === 'edit' && (() => {
+                    const emojiOptions = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡', '🎮', '🎵', '🎨', '🍕', '🍜', '🎂', '☕', '🏠', '🚗', '✈️', '🌙', '☀️', '❤️', '💜', '💙', '💚', '💛', '🧡', '👧', '👦', '👩', '👨', '👶', '👋', '👍', '👎', '✋', '✌️', '👌', '🤞', '💪', '👀', '💋', '😀', '🤣', '😍', '🤩', '🤔', '😱', '🏀', '⚽', '🏈', '🎾', '🏓', '🎳', '🚴', '🏃'];
+                    const colorOptions = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+
+                    return (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold mb-4">項目を編集</h3>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">項目名</label>
+                                    <div className="flex gap-2">
+                                        <span className="text-2xl">{tempEmoji}</span>
+                                        <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls} style={{ color: tempColor }} />
                                     </div>
-                                    <button onClick={addFav} className={btnCls}>⭐ お気に入り</button>
-                                    <button onClick={copyResult} className={btnCls}>📋 コピー</button>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">絵文字</label>
+                                    <div className="flex flex-wrap gap-1">
+                                        {emojiOptions.map(e => (
+                                            <button key={e} onClick={() => setTempEmoji(e)} className={`w-9 h-9 text-xl rounded-lg ${tempEmoji === e ? 'bg-purple-600 ring-2 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">色</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {colorOptions.map(c => (
+                                            <button key={c} onClick={() => setTempColor(c)} className={`w-8 h-8 rounded-full ${tempColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`} style={{ backgroundColor: c }} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-sm text-gray-500 mb-1">候補（1行に1つ）</label>
+                                    <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={6} className={inputCls + ' resize-none font-mono text-sm'} spellCheck={false} />
+                                    <div className="text-xs text-gray-500 mt-1">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    <button onClick={toggleHidden} className={btnCls}>{modal.hidden ? '👁 表示する' : '🙈 非表示'}</button>
+                                    <button onClick={dupCat} className={btnCls}>📋 複製</button>
+                                    <button onClick={deleteCat} className={`${btnCls} text-red-400`}>🗑️ 削除</button>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
+                                    <button onClick={saveEditModal} className="px-4 py-2 bg-purple-600 text-white rounded-lg">保存</button>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    );
+                })()}
 
-                    <div className="flex flex-wrap gap-2 justify-center pb-20">
-                        <button onClick={doExportText} className={btnCls}>📤コピー</button>
-                        <button onClick={doExportJSON} className={btnCls}>💾JSON</button>
-                        <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={btnCls}>📥インポート</button>
-                    </div>
-                </>
-            )}
-
-            {page === 'history' && (
-                <div className="space-y-2">
-                    {store.history.length > 0 && (
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm text-gray-500">{store.history.length}件</span>
-                            <button onClick={() => clearAll('history')} className="text-sm text-red-400">全削除</button>
-                        </div>
-                    )}
-                    {store.history.length === 0 && <p className="text-center text-gray-500 py-8">履歴なし</p>}
-                    {store.history.map(h => {
-                        const resultSize = store.resultFontSize === 'small' ? 'text-xs' : store.resultFontSize === 'large' ? 'text-base' : 'text-sm';
-                        return (
-                            <div key={h.id} className={cardCls + ' p-3'}>
-                                {store.showHistoryTime && <div className="text-xs text-gray-500 mb-1">{h.time}</div>}
-                                {Object.entries(h.res).map(([id, val]) => {
-                                    const cat = store.cats.find(c => c.id === Number(id));
-                                    const color = cat?.color || '#a855f7';
-                                    return val && (
-                                        <div key={id} className={resultSize}>
-                                            <span style={{ color }}>{h.names[id]}:</span> {val}
-                                        </div>
-                                    );
-                                })}
-                                {store.showRestoreButton && (
-                                    <button onClick={() => restoreRes(h.res)} className="text-xs text-purple-400 mt-2">↩️復元</button>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {page === 'favs' && (
-                <div className="space-y-2">
-                    {store.favs.length > 0 && (
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm text-gray-500">{store.favs.length}件</span>
-                            <button onClick={() => clearAll('favs')} className="text-sm text-red-400">全削除</button>
-                        </div>
-                    )}
-                    {store.favs.length === 0 && <p className="text-center text-gray-500 py-8">お気に入りなし</p>}
-                    {store.favs.map(f => {
-                        const resultSize = store.resultFontSize === 'small' ? 'text-xs' : store.resultFontSize === 'large' ? 'text-base' : 'text-sm';
-                        return (
-                            <div key={f.id} className={cardCls + ' p-3'}>
-                                {store.showHistoryTime && <div className="text-xs text-gray-500 mb-1">{f.time}</div>}
-                                {Object.entries(f.res).map(([id, val]) => {
-                                    const cat = store.cats.find(c => c.id === Number(id));
-                                    const color = cat?.color || '#a855f7';
-                                    return val && (
-                                        <div key={id} className={resultSize}>
-                                            <span style={{ color }}>{f.names[id]}:</span> {val}
-                                        </div>
-                                    );
-                                })}
-                                <div className="flex gap-3 mt-2">
-                                    {store.showRestoreButton && (
-                                        <button onClick={() => restoreRes(f.res)} className="text-xs text-purple-400">↩️復元</button>
-                                    )}
-                                    <button onClick={() => update(s => ({ favs: s.favs.filter(x => x.id !== f.id) }))} className="text-xs text-red-400">🗑️削除</button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {page === 'presets' && (
-                <div className="space-y-3">
-                    <div className="flex gap-2">
-                        <input type="text" value={tempPreset} onChange={e => setTempPreset(e.target.value)} placeholder="プリセット名" className={inputCls} />
-                        <button onClick={savePreset} className="px-4 py-2 bg-purple-600 text-white rounded-lg shrink-0">保存</button>
-                    </div>
-                    {store.presets.length === 0 && <p className="text-center text-gray-500 py-8">プリセットなし</p>}
-                    {store.presets.map(p => (
-                        <div key={p.id} className={cardCls + ' p-3 flex justify-between items-center'}>
-                            <div>
-                                <div className="font-medium">{p.name}</div>
-                                <div className="text-xs text-gray-500">{p.cats.length}項目</div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => update(s => {
-                                    const idx = s.presets.findIndex(x => x.id === p.id);
-                                    if (idx <= 0) return s;
-                                    const newPresets = [...s.presets];
-                                    [newPresets[idx - 1], newPresets[idx]] = [newPresets[idx], newPresets[idx - 1]];
-                                    return { presets: newPresets };
-                                })} className="text-gray-400 hover:text-purple-600">↑</button>
-                                <button onClick={() => update(s => {
-                                    const idx = s.presets.findIndex(x => x.id === p.id);
-                                    if (idx < 0 || idx >= s.presets.length - 1) return s;
-                                    const newPresets = [...s.presets];
-                                    [newPresets[idx], newPresets[idx + 1]] = [newPresets[idx + 1], newPresets[idx]];
-                                    return { presets: newPresets };
-                                })} className="text-gray-400 hover:text-purple-600">↓</button>
-                                <button onClick={() => loadPreset(p)} className="px-3 py-1 bg-purple-600/60 text-white rounded text-sm">読込</button>
-                                <button onClick={() => delPreset(p.id)} className="text-red-400 text-sm">🗑️</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {page === 'settings' && (
-                <div className="space-y-3 pb-20">
-                    <div className={cardCls + ' p-4'}>
-                        <h3 className="font-semibold mb-3">生成オプション</h3>
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <span>連続重複を防ぐ</span>
-                                <p className="text-xs text-gray-500">同じ結果が連続しない</p>
-                            </div>
-                            <button onClick={() => update(s => ({ noRepeat: !s.noRepeat }))} className={`w-12 h-6 rounded-full transition ${store.noRepeat ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.noRepeat ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                        </div>
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <span>生成アニメーション</span>
-                                <p className="text-xs text-gray-500">ONで0.3秒の演出あり</p>
-                            </div>
-                            <button onClick={() => update(s => ({ showAnimation: !s.showAnimation }))} className={`w-12 h-6 rounded-full transition ${store.showAnimation ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showAnimation ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <span>重み表示</span>
-                                <p className="text-xs text-gray-500">選択画面で重みを表示</p>
-                            </div>
-                            <button onClick={() => update(s => ({ showWeightIndicator: !s.showWeightIndicator }))} className={`w-12 h-6 rounded-full transition ${store.showWeightIndicator ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showWeightIndicator ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                        </div>
-                    </div>
-                    <div className={cardCls + ' p-4'}>
-                        <h3 className="font-semibold mb-3">表示オプション</h3>
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <span>ダークモード</span>
-                                <p className="text-xs text-gray-500">目に優しい暗い配色</p>
-                            </div>
-                            <button onClick={() => update(s => ({ dark: !s.dark }))} className={`w-12 h-6 rounded-full transition ${dark ? 'bg-purple-600' : 'bg-gray-300'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                        </div>
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <span>コンパクトモード</span>
-                                <p className="text-xs text-gray-500">項目カードを小さく</p>
-                            </div>
-                            <button onClick={() => update(s => ({ compactMode: !s.compactMode }))} className={`w-12 h-6 rounded-full transition ${store.compactMode ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.compactMode ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                        </div>
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <span>履歴に時間を表示</span>
-                                <p className="text-xs text-gray-500">生成日時を表示</p>
-                            </div>
-                            <button onClick={() => update(s => ({ showHistoryTime: !s.showHistoryTime }))} className={`w-12 h-6 rounded-full transition ${store.showHistoryTime ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showHistoryTime ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                        </div>
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <span>復元ボタンを表示</span>
-                                <p className="text-xs text-gray-500">履歴から復元可能に</p>
-                            </div>
-                            <button onClick={() => update(s => ({ showRestoreButton: !s.showRestoreButton }))} className={`w-12 h-6 rounded-full transition ${store.showRestoreButton ? 'bg-purple-600' : dark ? 'bg-slate-600' : 'bg-gray-300'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition ${store.showRestoreButton ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <span>結果の文字サイズ (履歴)</span>
-                                <p className="text-xs text-gray-500">履歴・お気に入りの表示</p>
-                            </div>
-                            <select
-                                value={store.resultFontSize}
-                                onChange={(e) => update(() => ({ resultFontSize: e.target.value }))}
-                                className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
-                            >
-                                <option value="small">小</option>
-                                <option value="normal">中</option>
-                                <option value="large">大</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center justify-between mt-3">
-                            <div>
-                                <span>結果の文字サイズ (メイン)</span>
-                                <p className="text-xs text-gray-500">生成結果の表示</p>
-                            </div>
-                            <select
-                                value={store.mainResultFontSize}
-                                onChange={(e) => update(() => ({ mainResultFontSize: e.target.value }))}
-                                className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
-                            >
-                                <option value="small">小</option>
-                                <option value="normal">中</option>
-                                <option value="large">大</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div className={cardCls + ' p-4'}>
-                        <h3 className="font-semibold mb-3">データ</h3>
-                        <button onClick={doExportJSON} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>💾 JSONバックアップ</button>
-                        <button onClick={() => { setTempImport(''); setModal({ type: 'import' }); }} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>📥 インポート</button>
-                        <button onClick={() => { setStore(INIT_DATA); toast('リセット完了'); }} className={`w-full text-left p-2 rounded-lg text-red-400 ${btnCls}`}>🗑️ 全データリセット</button>
-                    </div>
-                    <div className={cardCls + ' p-4'}>
-                        <h3 className="font-semibold mb-2">統計</h3>
-                        <div className="text-sm text-gray-500 space-y-1">
-                            <div>項目数: {store.cats.length} ({hiddenCount}件非表示)</div>
-                            <div>総候補数: {store.cats.reduce((a, c) => a + c.items.length, 0)}</div>
-                            <div>履歴: {store.history.length}件</div>
-                            <div>お気に入り: {store.favs.length}件</div>
-                            <div>プリセット: {store.presets.length}件</div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {modal?.type === 'edit' && (() => {
-                const emojiOptions = ['🎲', '🎯', '⭐', '🔥', '💎', '🌟', '🌈', '🎀', '🍀', '⚡', '🎮', '🎵', '🎨', '🍕', '🍜', '🎂', '☕', '🏠', '🚗', '✈️', '🌙', '☀️', '❤️', '💜', '💙', '💚', '💛', '🧡', '👧', '👦', '👩', '👨', '👶', '👋', '👍', '👎', '✋', '✌️', '👌', '🤞', '💪', '👀', '💋', '😀', '🤣', '😍', '🤩', '🤔', '😱', '🏀', '⚽', '🏈', '🎾', '🏓', '🎳', '🚴', '🏃'];
-                const colorOptions = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
-
-                return (
+                {modal?.type === 'import' && (
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
-                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-auto`} onClick={e => e.stopPropagation()}>
-                            <h3 className="text-lg font-bold mb-4">項目を編集</h3>
-                            <div className="mb-3">
-                                <label className="block text-sm text-gray-500 mb-1">項目名</label>
-                                <div className="flex gap-2">
-                                    <span className="text-2xl">{tempEmoji}</span>
-                                    <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} className={inputCls} style={{ color: tempColor }} />
-                                </div>
-                            </div>
-                            <div className="mb-3">
-                                <label className="block text-sm text-gray-500 mb-1">絵文字</label>
-                                <div className="flex flex-wrap gap-1">
-                                    {emojiOptions.map(e => (
-                                        <button key={e} onClick={() => setTempEmoji(e)} className={`w-9 h-9 text-xl rounded-lg ${tempEmoji === e ? 'bg-purple-600 ring-2 ring-purple-400' : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'}`}>{e}</button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="mb-3">
-                                <label className="block text-sm text-gray-500 mb-1">色</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {colorOptions.map(c => (
-                                        <button key={c} onClick={() => setTempColor(c)} className={`w-8 h-8 rounded-full ${tempColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`} style={{ backgroundColor: c }} />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="mb-3">
-                                <label className="block text-sm text-gray-500 mb-1">候補（1行に1つ）</label>
-                                <textarea value={tempItems} onChange={e => setTempItems(e.target.value)} rows={6} className={inputCls + ' resize-none font-mono text-sm'} spellCheck={false} />
-                                <div className="text-xs text-gray-500 mt-1">{tempItems.split('\n').filter(s => s.trim()).length}件</div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                <button onClick={toggleHidden} className={btnCls}>{modal.hidden ? '👁 表示する' : '🙈 非表示'}</button>
-                                <button onClick={dupCat} className={btnCls}>📋 複製</button>
-                                <button onClick={deleteCat} className={`${btnCls} text-red-400`}>🗑️ 削除</button>
-                            </div>
+                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl`} onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold mb-4">インポート</h3>
+                            <p className="text-sm text-gray-500 mb-2">テキスト形式またはJSON</p>
+                            <textarea value={tempImport} onChange={e => setTempImport(e.target.value)} rows={8} placeholder={"[項目1]\n候補A\n候補B\n\n[項目2]\n候補X\n候補Y"} className={inputCls + ' resize-none font-mono text-sm mb-3'} spellCheck={false} />
                             <div className="flex justify-end gap-2">
                                 <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
-                                <button onClick={saveEditModal} className="px-4 py-2 bg-purple-600 text-white rounded-lg">保存</button>
+                                <button onClick={doImport} className="px-4 py-2 bg-purple-600 text-white rounded-lg">インポート</button>
                             </div>
                         </div>
                     </div>
-                );
-            })()}
+                )}
 
-            {modal?.type === 'import' && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
-                    <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl`} onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold mb-4">インポート</h3>
-                        <p className="text-sm text-gray-500 mb-2">テキスト形式またはJSON</p>
-                        <textarea value={tempImport} onChange={e => setTempImport(e.target.value)} rows={8} placeholder={"[項目1]\n候補A\n候補B\n\n[項目2]\n候補X\n候補Y"} className={inputCls + ' resize-none font-mono text-sm mb-3'} spellCheck={false} />
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setModal(null)} className={btnCls}>キャンセル</button>
-                            <button onClick={doImport} className="px-4 py-2 bg-purple-600 text-white rounded-lg">インポート</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                {selectModal && (() => {
+                    const cat = store.cats.find(c => c.id === selectModal.cat.id) || selectModal.cat;
+                    const weights = cat.weights || {};
 
-            {selectModal && (() => {
-                const cat = store.cats.find(c => c.id === selectModal.cat.id) || selectModal.cat;
-                const weights = cat.weights || {};
-
-                const updateWeight = (item, delta) => {
-                    const currentWeight = weights[item] ?? 1;
-                    const newWeight = Math.max(0, Math.min(5, currentWeight + delta));
-                    update(s => ({
-                        cats: s.cats.map(c => c.id === cat.id
-                            ? { ...c, weights: { ...c.weights, [item]: newWeight } }
-                            : c
-                        )
-                    }));
-                };
-
-                const handleTouchStartItem = (e, item, idx) => {
-                    longPressTimer.current = setTimeout(() => {
-                        setItemMenu({ item, idx, x: e.touches[0].clientX, y: e.touches[0].clientY });
-                    }, 500);
-                };
-
-                const handleTouchEndItem = () => {
-                    if (longPressTimer.current) {
-                        clearTimeout(longPressTimer.current);
-                        longPressTimer.current = null;
-                    }
-                };
-
-                const handleContextMenu = (e, item, idx) => {
-                    e.preventDefault();
-                    setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
-                };
-
-                const deleteItem = (itemToDelete) => {
-                    if (!confirm(`「${itemToDelete}」を削除しますか？`)) return;
-                    update(s => ({
-                        cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter(i => i !== itemToDelete) } : c)
-                    }));
-                    setItemMenu(null);
-                };
-
-                const editItem = (oldItem, idx) => {
-                    const newItem = prompt('名称を編集:', oldItem);
-                    if (newItem && newItem.trim() !== '' && newItem !== oldItem) {
+                    const updateWeight = (item, delta) => {
+                        const currentWeight = weights[item] ?? 1;
+                        const newWeight = Math.max(0, Math.min(5, currentWeight + delta));
                         update(s => ({
-                            cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((i, iIdx) => iIdx === idx ? newItem : i) } : c)
+                            cats: s.cats.map(c => c.id === cat.id
+                                ? { ...c, weights: { ...c.weights, [item]: newWeight } }
+                                : c
+                            )
                         }));
-                    }
-                    setItemMenu(null);
-                };
+                    };
 
-                const copyItem = (text) => {
-                    navigator.clipboard.writeText(text);
-                    toast('コピーしました');
-                    setItemMenu(null);
-                };
+                    const handleTouchStartItem = (e, item, idx) => {
+                        longPressTimer.current = setTimeout(() => {
+                            setItemMenu({ item, idx, x: e.touches[0].clientX, y: e.touches[0].clientY });
+                        }, 500);
+                    };
 
-                return (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setSelectModal(null); setItemMenu(null); }}>
-                        <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`} onClick={e => e.stopPropagation()}>
-                            <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
-                            <p className="text-sm text-gray-500 mb-3">タップで固定 / 長押しでメニュー</p>
-                            <div className="overflow-y-auto flex-1 space-y-2">
-                                {cat.items.map((item, idx) => {
-                                    const w = weights[item] ?? 1;
-                                    const isDisabled = w === 0;
-                                    return (
-                                        <div key={idx} className={`flex items-center gap-2 rounded-lg transition ${isDisabled ? 'opacity-40' : ''
-                                            } ${store.results[cat.id] === item ? 'ring-2 ring-purple-500' : ''}`}>
-                                            <button
-                                                onTouchStart={(e) => handleTouchStartItem(e, item, idx)}
-                                                onTouchEnd={handleTouchEndItem}
-                                                onTouchMove={handleTouchEndItem}
-                                                onContextMenu={(e) => handleContextMenu(e, item, idx)}
-                                                onClick={() => {
-                                                    if (!isDisabled) {
-                                                        update(s => ({
-                                                            results: { ...s.results, [cat.id]: item },
-                                                            locked: { ...s.locked, [cat.id]: true }
-                                                        }));
-                                                        setSelectModal(null);
-                                                        toast(`「${item}」を選択・固定しました`);
-                                                    }
-                                                }}
-                                                className={`flex-1 text-left px-3 py-2 rounded-lg transition select-none ${store.results[cat.id] === item
-                                                    ? 'bg-purple-600 text-white'
-                                                    : isDisabled
-                                                        ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
-                                                        : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
-                                                    }`}
-                                            >
-                                                <span className="break-all whitespace-pre-wrap">{item}</span>
-                                                {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
-                                            </button>
-                                            {store.showWeightIndicator && (
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); updateWeight(item, -1); }}
-                                                        className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                                    >
-                                                        −
-                                                    </button>
-                                                    <span className={`w-6 text-center text-sm font-medium ${w === 0 ? 'text-red-400' : w >= 3 ? 'text-green-400' : ''
-                                                        }`}>
-                                                        {w}
-                                                    </span>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); updateWeight(item, 1); }}
-                                                        className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                                    >
-                                                        ＋
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-700">
-                                <input
-                                    type="text"
-                                    value={tempNewItem}
-                                    onChange={e => setTempNewItem(e.target.value)}
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && tempNewItem.trim()) {
+                    const handleTouchEndItem = () => {
+                        if (longPressTimer.current) {
+                            clearTimeout(longPressTimer.current);
+                            longPressTimer.current = null;
+                        }
+                    };
+
+                    const handleContextMenu = (e, item, idx) => {
+                        e.preventDefault();
+                        setItemMenu({ item, idx, x: e.clientX, y: e.clientY });
+                    };
+
+                    const deleteItem = (itemToDelete) => {
+                        if (!confirm(`「${itemToDelete}」を削除しますか？`)) return;
+                        update(s => ({
+                            cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.filter(i => i !== itemToDelete) } : c)
+                        }));
+                        setItemMenu(null);
+                    };
+
+                    const editItem = (oldItem, idx) => {
+                        const newItem = prompt('名称を編集:', oldItem);
+                        if (newItem && newItem.trim() !== '' && newItem !== oldItem) {
+                            update(s => ({
+                                cats: s.cats.map(c => c.id === cat.id ? { ...c, items: c.items.map((i, iIdx) => iIdx === idx ? newItem : i) } : c)
+                            }));
+                        }
+                        setItemMenu(null);
+                    };
+
+                    const copyItem = (text) => {
+                        navigator.clipboard.writeText(text);
+                        toast('コピーしました');
+                        setItemMenu(null);
+                    };
+
+                    return (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setSelectModal(null); setItemMenu(null); }}>
+                            <div className={`${dark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} rounded-2xl p-5 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col relative`} onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold mb-2">「{cat.name}」の候補を選択</h3>
+                                <p className="text-sm text-gray-500 mb-3">タップで固定 / 長押しでメニュー</p>
+                                <div className="overflow-y-auto flex-1 space-y-2">
+                                    {cat.items.map((item, idx) => {
+                                        const w = weights[item] ?? 1;
+                                        const isDisabled = w === 0;
+                                        return (
+                                            <div key={idx} className={`flex items-center gap-2 rounded-lg transition ${isDisabled ? 'opacity-40' : ''
+                                                } ${store.results[cat.id] === item ? 'ring-2 ring-purple-500' : ''}`}>
+                                                <button
+                                                    onTouchStart={(e) => handleTouchStartItem(e, item, idx)}
+                                                    onTouchEnd={handleTouchEndItem}
+                                                    onTouchMove={handleTouchEndItem}
+                                                    onContextMenu={(e) => handleContextMenu(e, item, idx)}
+                                                    onClick={() => {
+                                                        if (!isDisabled) {
+                                                            update(s => ({
+                                                                results: { ...s.results, [cat.id]: item },
+                                                                locked: { ...s.locked, [cat.id]: true }
+                                                            }));
+                                                            setSelectModal(null);
+                                                            toast(`「${item}」を選択・固定しました`);
+                                                        }
+                                                    }}
+                                                    className={`flex-1 text-left px-3 py-2 rounded-lg transition select-none ${store.results[cat.id] === item
+                                                        ? 'bg-purple-600 text-white'
+                                                        : isDisabled
+                                                            ? dark ? 'bg-slate-800/50 text-gray-500' : 'bg-gray-100 text-gray-400'
+                                                            : dark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    <span className="break-all whitespace-pre-wrap">{item}</span>
+                                                    {isDisabled && <span className="text-xs ml-2">（出ない）</span>}
+                                                </button>
+                                                {store.showWeightIndicator && (
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); updateWeight(item, -1); }}
+                                                            className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                                        >
+                                                            −
+                                                        </button>
+                                                        <span className={`w-6 text-center text-sm font-medium ${w === 0 ? 'text-red-400' : w >= 3 ? 'text-green-400' : ''
+                                                            }`}>
+                                                            {w}
+                                                        </span>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); updateWeight(item, 1); }}
+                                                            className={`w-8 h-8 rounded-lg text-sm font-bold ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                                        >
+                                                            ＋
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex gap-2 mt-3 pt-3 border-t border-gray-700">
+                                    <input
+                                        type="text"
+                                        value={tempNewItem}
+                                        onChange={e => setTempNewItem(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && tempNewItem.trim()) {
+                                                update(s => ({
+                                                    cats: s.cats.map(c => c.id === cat.id
+                                                        ? { ...c, items: [...c.items, tempNewItem.trim()] }
+                                                        : c
+                                                    )
+                                                }));
+                                                setTempNewItem('');
+                                                toast('候補を追加しました');
+                                            }
+                                        }}
+                                        placeholder="新しい候補を追加..."
+                                        className={`flex-1 ${inputCls}`}
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (tempNewItem.trim()) {
+                                                update(s => ({
+                                                    cats: s.cats.map(c => c.id === cat.id
+                                                        ? { ...c, items: [...c.items, tempNewItem.trim()] }
+                                                        : c
+                                                    )
+                                                }));
+                                                setTempNewItem('');
+                                                toast('候補を追加しました');
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg shrink-0"
+                                    >
+                                        追加
+                                    </button>
+                                </div>
+                                <div className="flex justify-between mt-4 pt-3 border-t border-gray-600">
+                                    <button
+                                        onClick={() => {
                                             update(s => ({
-                                                cats: s.cats.map(c => c.id === cat.id
-                                                    ? { ...c, items: [...c.items, tempNewItem.trim()] }
-                                                    : c
-                                                )
+                                                results: { ...s.results, [cat.id]: '' },
+                                                locked: { ...s.locked, [cat.id]: false }
                                             }));
-                                            setTempNewItem('');
-                                            toast('候補を追加しました');
-                                        }
-                                    }}
-                                    placeholder="新しい候補を追加..."
-                                    className={`flex-1 ${inputCls}`}
-                                />
-                                <button
-                                    onClick={() => {
-                                        if (tempNewItem.trim()) {
-                                            update(s => ({
-                                                cats: s.cats.map(c => c.id === cat.id
-                                                    ? { ...c, items: [...c.items, tempNewItem.trim()] }
-                                                    : c
-                                                )
-                                            }));
-                                            setTempNewItem('');
-                                            toast('候補を追加しました');
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg shrink-0"
-                                >
-                                    追加
-                                </button>
-                            </div>
-                            <div className="flex justify-between mt-4 pt-3 border-t border-gray-600">
-                                <button
-                                    onClick={() => {
-                                        update(s => ({
-                                            results: { ...s.results, [cat.id]: '' },
-                                            locked: { ...s.locked, [cat.id]: false }
-                                        }));
-                                        setSelectModal(null);
-                                        toast('選択を解除しました');
-                                    }}
-                                    className={`text-sm ${btnCls} text-red-400`}
-                                >
-                                    🔓 選択解除
-                                </button>
-                                <button onClick={() => setSelectModal(null)} className={btnCls}>閉じる</button>
+                                            setSelectModal(null);
+                                            toast('選択を解除しました');
+                                        }}
+                                        className={`text-sm ${btnCls} text-red-400`}
+                                    >
+                                        🔓 選択解除
+                                    </button>
+                                    <button onClick={() => setSelectModal(null)} className={btnCls}>閉じる</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                );
-            })()}
+                    );
+                })()}
 
-            <div className="text-center text-xs text-gray-500 mt-6">ストレージ: {storageSize()}</div>
-        </div>
-    </div >
-);
+                <div className="text-center text-xs text-gray-500 mt-6">ストレージ: {storageSize()}</div>
+            </div>
+        </div >
+    );
 }
