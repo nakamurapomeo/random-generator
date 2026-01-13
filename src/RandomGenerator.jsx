@@ -42,6 +42,8 @@ const INIT_DATA = {
     enableImageZoom: true,   // Enable click-to-zoom for result images
     keepAspectRatio: true,   // Keep original aspect ratio when resizing (false = 1:1)
     resultImageSize: 40,     // Result display image size (px)
+    cloudPasskey: '',        // Passkey for cloud sync
+    cloudWorkerUrl: '',      // Cloudflare Worker URL for R2 storage
 };
 
 // Normalize sub-item to new format (migrate from string to object)
@@ -155,6 +157,7 @@ export default function RandomGenerator({ onSwitchApp }) {
     const [expandedItems, setExpandedItems] = useState({});
     const [imageCache, setImageCache] = useState({});
     const [zoomImage, setZoomImage] = useState(null); // { src, alt } for zoomed image modal
+    const [cloudSaving, setCloudSaving] = useState(false); // Cloud save/load in progress
     const dragNode = useRef(null);
     const longPressTimer = useRef(null);
     const isLongPress = useRef(false);
@@ -680,6 +683,163 @@ export default function RandomGenerator({ onSwitchApp }) {
         } catch (err) {
             console.error('Failed to export zip:', err);
             toast('エクスポートに失敗しました');
+        }
+    };
+
+    // Cloud Save - Save data and images to Cloudflare R2
+    const doCloudSave = async () => {
+        if (!store.cloudPasskey || !store.cloudWorkerUrl) {
+            toast('パスキーとWorker URLを設定してください');
+            return;
+        }
+
+        setCloudSaving(true);
+        try {
+            // Collect all image IDs and data
+            const imageIds = new Set();
+            store.cats.forEach(cat => {
+                cat.items.forEach(item => {
+                    if (item.imageId) imageIds.add(item.imageId);
+                    if (item.subItems) {
+                        item.subItems.forEach(sub => {
+                            if (typeof sub === 'object' && sub.imageId) {
+                                imageIds.add(sub.imageId);
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Collect images from cache
+            const images = {};
+            for (const id of imageIds) {
+                if (imageCache[id]) {
+                    images[id] = imageCache[id];
+                }
+            }
+
+            // Create backup data
+            const backupData = {
+                cats: store.cats,
+                presets: store.presets,
+                results: store.results,
+                locked: store.locked,
+                favs: store.favs,
+                settings: {
+                    dark: store.dark,
+                    noRepeat: store.noRepeat,
+                    showHidden: store.showHidden,
+                    showAnimation: store.showAnimation,
+                    showWeightIndicator: store.showWeightIndicator,
+                    compactMode: store.compactMode,
+                    showHistoryTime: store.showHistoryTime,
+                    showRestoreButton: store.showRestoreButton,
+                    resultFontSize: store.resultFontSize,
+                    mainResultFontSize: store.mainResultFontSize,
+                    resizeImages: store.resizeImages,
+                    maxImageSize: store.maxImageSize,
+                    enableImageZoom: store.enableImageZoom,
+                    keepAspectRatio: store.keepAspectRatio,
+                    resultImageSize: store.resultImageSize
+                },
+                images,
+                wordArranger: {
+                    data: localStorage.getItem('wordArrangerData2') ? JSON.parse(localStorage.getItem('wordArrangerData2')) : null,
+                    slots: localStorage.getItem('wordArrangerSlots2') ? JSON.parse(localStorage.getItem('wordArrangerSlots2')) : null
+                },
+                savedAt: new Date().toISOString()
+            };
+
+            // Send to Cloudflare Worker
+            const response = await fetch(`${store.cloudWorkerUrl}/api/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    passkey: store.cloudPasskey,
+                    data: backupData
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                toast(`☁️ クラウド保存完了 (画像${Object.keys(images).length}件)`);
+            } else {
+                throw new Error(result.error || 'Save failed');
+            }
+        } catch (err) {
+            console.error('Cloud save failed:', err);
+            toast('クラウド保存に失敗しました');
+        } finally {
+            setCloudSaving(false);
+        }
+    };
+
+    // Cloud Load - Load data and images from Cloudflare R2
+    const doCloudLoad = async () => {
+        if (!store.cloudPasskey || !store.cloudWorkerUrl) {
+            toast('パスキーとWorker URLを設定してください');
+            return;
+        }
+
+        setCloudSaving(true);
+        try {
+            const response = await fetch(`${store.cloudWorkerUrl}/api/load?passkey=${encodeURIComponent(store.cloudPasskey)}`);
+            const result = await response.json();
+
+            if (!result.success) {
+                if (response.status === 404) {
+                    toast('このパスキーのデータが見つかりません');
+                } else {
+                    throw new Error(result.error || 'Load failed');
+                }
+                return;
+            }
+
+            const data = result.data;
+
+            // Apply migration to cats
+            const migratedCats = data.cats ? data.cats.map(c => migrateCatItems({ ...c, hidden: c.hidden || false })) : store.cats;
+
+            // Import images
+            let importedImages = 0;
+            if (data.images && typeof data.images === 'object') {
+                for (const [imageId, base64Data] of Object.entries(data.images)) {
+                    try {
+                        await saveImage(imageId, base64Data);
+                        importedImages++;
+                    } catch (e) {
+                        console.error('Failed to import image:', imageId, e);
+                    }
+                }
+            }
+
+            // Update store
+            update(() => ({
+                cats: migratedCats,
+                presets: data.presets || store.presets,
+                ...(data.settings || {})
+            }));
+
+            // Restore Word Arranger data
+            if (data.wordArranger) {
+                if (data.wordArranger.data) {
+                    localStorage.setItem('wordArrangerData2', JSON.stringify(data.wordArranger.data));
+                }
+                if (data.wordArranger.slots) {
+                    localStorage.setItem('wordArrangerSlots2', JSON.stringify(data.wordArranger.slots));
+                }
+            }
+
+            // Refresh image cache
+            const allImages = await getAllImages();
+            setImageCache(allImages);
+
+            toast(`☁️ クラウドから復元完了 (画像${importedImages}件)`);
+        } catch (err) {
+            console.error('Cloud load failed:', err);
+            toast('クラウド読み込みに失敗しました');
+        } finally {
+            setCloudSaving(false);
         }
     };
 
@@ -1334,7 +1494,34 @@ export default function RandomGenerator({ onSwitchApp }) {
                             </div>
                         </div>
                         <div className={cardCls + ' p-4'}>
+                            <h3 className="font-semibold mb-3">☁️ クラウド設定</h3>
+                            <div className="mb-3">
+                                <label className="block text-xs text-gray-500 mb-1">Worker URL</label>
+                                <input
+                                    type="url"
+                                    value={store.cloudWorkerUrl}
+                                    onChange={(e) => update(() => ({ cloudWorkerUrl: e.target.value }))}
+                                    placeholder="https://your-worker.workers.dev"
+                                    className={inputCls + ' text-sm'}
+                                />
+                            </div>
+                            <div className="mb-3">
+                                <label className="block text-xs text-gray-500 mb-1">パスキー</label>
+                                <input
+                                    type="text"
+                                    value={store.cloudPasskey}
+                                    onChange={(e) => update(() => ({ cloudPasskey: e.target.value }))}
+                                    placeholder="あなただけのパスキー"
+                                    className={inputCls + ' text-sm'}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">※ パスキーはブラウザに保存されます</p>
+                            </div>
+                        </div>
+                        <div className={cardCls + ' p-4'}>
                             <h3 className="font-semibold mb-3">データ</h3>
+                            <button onClick={doCloudSave} disabled={cloudSaving || !store.cloudPasskey || !store.cloudWorkerUrl} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls} ${(!store.cloudPasskey || !store.cloudWorkerUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}>☁️ クラウド保存 {cloudSaving && '...'}</button>
+                            <button onClick={doCloudLoad} disabled={cloudSaving || !store.cloudPasskey || !store.cloudWorkerUrl} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls} ${(!store.cloudPasskey || !store.cloudWorkerUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}>📥 クラウド読み込み {cloudSaving && '...'}</button>
+                            <hr className={`my-3 ${dark ? 'border-slate-600' : 'border-gray-200'}`} />
                             <button onClick={doExportJSON} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>💾 JSONバックアップ (画像なし)</button>
                             <button onClick={doExportZip} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>🗄️ Zipバックアップ (画像含む)</button>
 
