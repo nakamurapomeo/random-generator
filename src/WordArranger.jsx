@@ -207,8 +207,61 @@ export default function WordArranger({ onSwitchApp }) {
     const getStats = () => { const sc = {}, cc = {}; words.forEach(w => { sc[w.size] = (sc[w.size] || 0) + 1; cc[w.color || '#6B7280'] = (cc[w.color || '#6B7280'] || 0) + 1; }); return { sc, cc }; };
     const displayWords = packMode ? [...words].sort((a, b) => b.size - a.size) : words;
 
+    const [pullY, setPullY] = useState(0);
+    const pullStartRef = useRef(0);
+    const isPullingRef = useRef(false);
+
+    const handleTouchStart = (e) => {
+        if (window.scrollY <= 0) {
+            pullStartRef.current = e.touches[0].clientY;
+            isPullingRef.current = true;
+        } else {
+            isPullingRef.current = false;
+        }
+    };
+
+    const handleTouchMove = (e) => {
+        if (!isPullingRef.current) return;
+        const y = e.touches[0].clientY;
+        const diff = y - pullStartRef.current;
+        if (diff > 0 && window.scrollY <= 0) {
+            if (e.cancelable && diff > 10) {
+                // かなり強く引っ張った場合のみデフォルト動作を抑制（スクロール阻害回避）
+                // e.preventDefault(); // ここでpreventするとスクロールできない問題が出るので外す
+            }
+            setPullY(Math.min(diff * 0.5, 120)); // 抵抗感をつける
+        } else {
+            setPullY(0);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (pullY > 80) {
+            shuffleWithinSize();
+            showToast('♻️ ランダム配置しました');
+        }
+        setPullY(0);
+        isPullingRef.current = false;
+    };
+
     return (
-        <div className="min-h-screen text-white p-1" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
+        <div
+            className="min-h-screen text-white p-1"
+            style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+        >
+            {pullY > 0 && (
+                <div
+                    style={{ height: pullY, opacity: pullY / 80 }}
+                    className="flex justify-center items-center bg-transparent text-gray-300 text-sm font-bold overflow-hidden transition-all duration-75"
+                >
+                    <span className={`transform transition-transform ${pullY > 80 ? 'rotate-180' : ''}`}>⬇️</span>
+                    <span className="ml-2">{pullY > 80 ? '放して更新' : '引っ張ってランダム配置'}</span>
+                </div>
+            )}
+
             <canvas ref={canvasRef} className="hidden" />
             <input ref={fileInputRef} type="file" accept=".json,.txt,.csv" onChange={handleFileImport} className="hidden" />
             {toast && <div className="fixed top-2 left-1/2 -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded shadow-lg z-50 text-xs">{toast}</div>}
@@ -227,8 +280,8 @@ export default function WordArranger({ onSwitchApp }) {
             )}
 
             {showBulkEdit && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-2">
-                    <div className="bg-gray-800 rounded-xl p-3 w-full max-w-md max-h-[90vh] flex flex-col">
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-2" onClick={() => setShowBulkEdit(false)}>
+                    <div className="bg-gray-800 rounded-xl p-3 w-full max-w-md max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                         <h3 className="font-bold mb-2 text-sm">📝 一括編集</h3>
                         <textarea value={bulkEditText} onChange={e => setBulkEditText(e.target.value)} className="flex-1 bg-white/10 rounded px-2 py-1 text-sm outline-none resize-none min-h-48" />
                         <div className="flex gap-2 mt-2">
@@ -271,23 +324,33 @@ export default function WordArranger({ onSwitchApp }) {
                         })}
                         {words.length === 0 && <p className="text-gray-400 text-xs w-full text-center py-2">単語を追加</p>}
                     </div>
+
+                    {/* ダイアログ全画面オーバーレイ */}
                     {selectedIdx !== null && words[selectedIdx] && (
-                        <div className="absolute bg-gray-900 rounded-lg p-2 shadow-xl border border-purple-400 z-20" style={{ left: popupPos.x + 'px', top: popupPos.y + 'px', minWidth: '170px' }} onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setSelectedIdx(null)} className="absolute top-1 right-1 text-gray-400 hover:text-white text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-gray-700">×</button>
-                            <div className="text-xs text-gray-400 mb-1 pr-5">「{words[selectedIdx].text}」</div>
-                            <div className="flex gap-1 mb-1">
-                                <select value={words[selectedIdx].size} onChange={e => updateWord(selectedIdx, 'size', Number(e.target.value))} className="flex-1 text-xs rounded px-1 py-1 bg-gray-700">
-                                    {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}px</option>)}
-                                </select>
-                                <select value={words[selectedIdx].color || '#6B7280'} onChange={e => updateWord(selectedIdx, 'color', e.target.value)} className="text-xs rounded px-1 py-1" style={{ backgroundColor: words[selectedIdx].color || '#6B7280', color: getContrastColor(words[selectedIdx].color || '#6B7280') }}>
-                                    {COLOR_OPTIONS.map(o => <option key={o.value} value={o.value} style={{ backgroundColor: o.value, color: getContrastColor(o.value) }}>{o.label}</option>)}
-                                </select>
+                        <>
+                            {/* 透明な背景クリック領域 - z-indexをプレビューより手前、ダイアログより奥に */}
+                            <div className="fixed inset-0 z-10" onClick={(e) => {
+                                e.stopPropagation(); // 親への伝播を止める（念のため）
+                                setSelectedIdx(null);
+                            }}></div>
+
+                            <div className="absolute bg-gray-900 rounded-lg p-2 shadow-xl border border-purple-400 z-20" style={{ left: popupPos.x + 'px', top: popupPos.y + 'px', minWidth: '170px' }} onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setSelectedIdx(null)} className="absolute top-1 right-1 text-gray-400 hover:text-white text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-gray-700">×</button>
+                                <div className="text-xs text-gray-400 mb-1 pr-5">「{words[selectedIdx].text}」</div>
+                                <div className="flex gap-1 mb-1">
+                                    <select value={words[selectedIdx].size} onChange={e => updateWord(selectedIdx, 'size', Number(e.target.value))} className="flex-1 text-xs rounded px-1 py-1 bg-gray-700">
+                                        {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}px</option>)}
+                                    </select>
+                                    <select value={words[selectedIdx].color || '#6B7280'} onChange={e => updateWord(selectedIdx, 'color', e.target.value)} className="text-xs rounded px-1 py-1" style={{ backgroundColor: words[selectedIdx].color || '#6B7280', color: getContrastColor(words[selectedIdx].color || '#6B7280') }}>
+                                        {COLOR_OPTIONS.map(o => <option key={o.value} value={o.value} style={{ backgroundColor: o.value, color: getContrastColor(o.value) }}>{o.label}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex gap-1">
+                                    <button onClick={() => duplicateWord(selectedIdx)} className="flex-1 bg-blue-500 hover:bg-blue-600 px-1 py-0.5 rounded text-xs">📋</button>
+                                    <button onClick={() => deleteWord(selectedIdx)} className="flex-1 bg-red-500 hover:bg-red-600 px-1 py-0.5 rounded text-xs">🗑</button>
+                                </div>
                             </div>
-                            <div className="flex gap-1">
-                                <button onClick={() => duplicateWord(selectedIdx)} className="flex-1 bg-blue-500 hover:bg-blue-600 px-1 py-0.5 rounded text-xs">📋</button>
-                                <button onClick={() => deleteWord(selectedIdx)} className="flex-1 bg-red-500 hover:bg-red-600 px-1 py-0.5 rounded text-xs">🗑</button>
-                            </div>
-                        </div>
+                        </>
                     )}
                 </div>
 

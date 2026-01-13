@@ -1037,8 +1037,58 @@ export default function RandomGenerator({ onSwitchApp }) {
     const hiddenCount = store.cats.filter(c => c.hidden).length;
     const displayCats = store.showHidden ? store.cats : visibleCats;
 
+    const [pullY, setPullY] = useState(0);
+    const pullStartRef = useRef(0);
+    const isPullingRef = useRef(false);
+
+    const handlePullTouchStart = (e) => {
+        if (window.scrollY <= 0 && page === 'main') { // メインページでのみ有効
+            pullStartRef.current = e.touches[0].clientY;
+            isPullingRef.current = true;
+        } else {
+            isPullingRef.current = false;
+        }
+    };
+
+    const handlePullTouchMove = (e) => {
+        if (!isPullingRef.current) return;
+        const y = e.touches[0].clientY;
+        const diff = y - pullStartRef.current;
+        if (diff > 0 && window.scrollY <= 0) {
+            if (e.cancelable && diff > 10) {
+                // スクロール干渉を避けるためpreventDefaultは慎重に
+            }
+            setPullY(Math.min(diff * 0.5, 120));
+        } else {
+            setPullY(0);
+        }
+    };
+
+    const handlePullTouchEnd = () => {
+        if (pullY > 80) {
+            doGenerate();
+            toast('♻️ 生成しました');
+        }
+        setPullY(0);
+        isPullingRef.current = false;
+    };
+
     return (
-        <div className={bg + ' p-4'}>
+        <div
+            className={bg + ' p-4'}
+            onTouchStart={handlePullTouchStart}
+            onTouchMove={handlePullTouchMove}
+            onTouchEnd={handlePullTouchEnd}
+        >
+            {pullY > 0 && (
+                <div
+                    style={{ height: pullY, opacity: pullY / 80 }}
+                    className="flex justify-center items-center bg-transparent text-gray-500 dark:text-gray-300 text-sm font-bold overflow-hidden transition-all duration-75 mb-2"
+                >
+                    <span className={`transform transition-transform ${pullY > 80 ? 'rotate-180' : ''}`}>⬇️</span>
+                    <span className="ml-2">{pullY > 80 ? '放して生成' : '引っ張ってランダム生成'}</span>
+                </div>
+            )}
             {msg && <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-6 py-2 rounded-full shadow-lg z-50 text-sm">{msg}</div>}
 
             <div className="max-w-lg mx-auto">
