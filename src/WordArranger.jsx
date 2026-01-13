@@ -435,7 +435,7 @@ export default function WordArranger({ onSwitchApp }) {
                     <input type="text" value={newWord} onChange={e => setNewWord(e.target.value)} onKeyDown={e => e.key === 'Enter' && addWord()} placeholder="追加..." className="flex-1 min-w-20 bg-white/10 rounded px-2 py-0.5 text-xs outline-none" />
                     <button onClick={addWord} className="bg-purple-500 hover:bg-purple-600 px-2 py-0.5 rounded text-xs">+</button>
                     <button onClick={openBulkEdit} className="bg-yellow-600 hover:bg-yellow-700 px-2 py-0.5 rounded text-xs">一括</button>
-                    <button onClick={() => setShowImport(!showImport)} className="bg-green-600 hover:bg-green-700 px-2 py-0.5 rounded text-xs">📥</button>
+                    {/* インポートボタンを設定へ移動 */}
                     <button onClick={clearAll} className="bg-red-600 hover:bg-red-700 px-2 py-0.5 rounded text-xs">🗑</button>
                     <span className="text-xs text-gray-400">{words.length}</span>
                 </div>
@@ -542,8 +542,9 @@ export default function WordArranger({ onSwitchApp }) {
                                 </div>
                             )}
                             <div className="flex gap-1 pt-2 border-t border-white/20">
-                                <button onClick={saveAsImage} className="flex-1 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 px-2 py-1.5 rounded font-bold text-xs">📷画像保存</button>
-                                <button onClick={exportJSON} className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 px-2 py-1.5 rounded font-bold text-xs">💾JSON出力</button>
+                                <button onClick={saveAsImage} className="flex-1 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 px-2 py-1.5 rounded font-bold text-xs">📷画像</button>
+                                <button onClick={exportJSON} className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 px-2 py-1.5 rounded font-bold text-xs">💾JSON</button>
+                                <button onClick={() => setShowImport(!showImport)} className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 px-2 py-1.5 rounded font-bold text-xs">📤読込</button>
                             </div>
                         </div>
                     </div>
