@@ -1094,7 +1094,11 @@ export default function RandomGenerator({ onSwitchApp }) {
             <div className="max-w-lg mx-auto">
                 <div className="flex items-center justify-between mb-4">
                     <h1 onClick={onSwitchApp} className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition select-none">ランダムジェネレーター</h1>
-                    <button onClick={() => update(s => ({ dark: !s.dark }))} className={btnCls}>{dark ? '☀️' : '🌙'}</button>
+                    <div className="flex gap-2">
+                        <button onClick={doCloudSave} className={btnCls} title="クラウドに保存">☁️</button>
+                        <button onClick={doCloudLoad} className={btnCls} title="クラウドから復元">📥</button>
+                        <button onClick={() => update(s => ({ dark: !s.dark }))} className={btnCls}>{dark ? '☀️' : '🌙'}</button>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-1 justify-center mb-3">
@@ -1225,6 +1229,7 @@ export default function RandomGenerator({ onSwitchApp }) {
                                                 };
                                             }
 
+                                            const fs = typeof store.mainResultFontSize === 'number' ? store.mainResultFontSize : (store.mainResultFontSize === 'large' ? 24 : store.mainResultFontSize === 'small' ? 14 : 18);
                                             return (
                                                 <div className={containerStyle}>
                                                     {imgSrc && (
@@ -1241,8 +1246,8 @@ export default function RandomGenerator({ onSwitchApp }) {
                                                             }}
                                                         />
                                                     )}
-                                                    {!isImageMode && <span className="flex-1">{resultText}</span>}
-                                                    {isImageMode && !imgSrc && <span className="flex-1 text-center font-bold text-lg py-4">{resultText}</span>}
+                                                    {!isImageMode && <span className="flex-1" style={{ fontSize: fs }}>{resultText}</span>}
+                                                    {isImageMode && !imgSrc && <span className="flex-1 text-center font-bold py-4" style={{ fontSize: fs }}>{resultText}</span>}
                                                 </div>
                                             );
                                         })()}
@@ -1479,17 +1484,17 @@ export default function RandomGenerator({ onSwitchApp }) {
                             <div className="flex items-center justify-between mt-3">
                                 <div>
                                     <span>結果の文字サイズ (メイン)</span>
-                                    <p className="text-xs text-gray-500">生成結果の表示</p>
+                                    <p className="text-xs text-gray-500">生成結果の表示 ({typeof store.mainResultFontSize === 'number' ? store.mainResultFontSize : '標準'}px)</p>
                                 </div>
-                                <select
-                                    value={store.mainResultFontSize}
-                                    onChange={(e) => update(() => ({ mainResultFontSize: e.target.value }))}
-                                    className={`${dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'} border rounded-lg px-2 py-1 text-sm`}
-                                >
-                                    <option value="small">小</option>
-                                    <option value="normal">中</option>
-                                    <option value="large">大</option>
-                                </select>
+                                <input
+                                    type="range"
+                                    min="12"
+                                    max="64"
+                                    step="1"
+                                    value={typeof store.mainResultFontSize === 'number' ? store.mainResultFontSize : 18}
+                                    onChange={(e) => update(() => ({ mainResultFontSize: Number(e.target.value) }))}
+                                    className="w-32"
+                                />
                             </div>
                         </div>
                         <div className={cardCls + ' p-4'}>

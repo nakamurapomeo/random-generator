@@ -244,6 +244,81 @@ export default function WordArranger({ onSwitchApp }) {
         isPullingRef.current = false;
     };
 
+    const getCloudConfig = () => {
+        try {
+            const raw = localStorage.getItem('randgen4');
+            const data = raw ? JSON.parse(raw) : {};
+            return {
+                url: data.cloudWorkerUrl,
+                key: data.cloudPasskey,
+                apiKey: data.cloudApiKey
+            };
+        } catch { return {}; }
+    };
+
+    const doCloudSave = async () => {
+        const { url, key, apiKey } = getCloudConfig();
+        if (!url || !key || !apiKey) { showToast('RandomGeneratorでクラウド設定してください'); return; }
+
+        showToast('☁️ 保存中...');
+        try {
+            const res = await fetch(`${url}/api/load/${key}`, { headers: { 'x-api-key': apiKey } });
+
+            let newData = {};
+            if (res.ok) {
+                const current = await res.json();
+                newData = current.data || {};
+            }
+
+            const waData = {
+                data: { words, defaultSize, defaultColor, bgColor, packMode },
+                slots: savedSlots
+            };
+
+            newData.wordArranger = waData;
+
+            const saveRes = await fetch(`${url}/api/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+                body: JSON.stringify({ passkey: key, data: newData })
+            });
+            if (!saveRes.ok) throw new Error('Save failed');
+            showToast('☁️ クラウドに保存しました');
+        } catch (e) {
+            console.error(e);
+            showToast('保存失敗: ' + e.message);
+        }
+    };
+
+    const doCloudLoad = async () => {
+        const { url, key, apiKey } = getCloudConfig();
+        if (!url || !key || !apiKey) { showToast('クラウド設定なし'); return; }
+        showToast('📥 読込中...');
+        try {
+            const res = await fetch(`${url}/api/load/${key}`, { headers: { 'x-api-key': apiKey } });
+            if (!res.ok) throw new Error('Load failed');
+            const json = await res.json();
+            const data = json.data;
+            if (data && data.wordArranger) {
+                const wa = data.wordArranger;
+                if (wa.data) {
+                    const d = wa.data;
+                    if (d.words) setWords(d.words);
+                    if (d.defaultSize) setDefaultSize(d.defaultSize);
+                    if (d.defaultColor) setDefaultColor(d.defaultColor);
+                    if (d.bgColor) setBgColor(d.bgColor);
+                    if (d.packMode !== undefined) setPackMode(d.packMode);
+                }
+                if (wa.slots) setSavedSlots(wa.slots);
+                showToast('☁️ 復元しました');
+            } else {
+                showToast('データがありません');
+            }
+        } catch (e) {
+            showToast('読込失敗');
+        }
+    };
+
     return (
         <div
             className="min-h-screen text-white p-1 relative"
@@ -301,6 +376,8 @@ export default function WordArranger({ onSwitchApp }) {
                             {savedSlots.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                         </select>
                         <button onClick={() => setShowSaveModal(true)} className="bg-indigo-500 hover:bg-indigo-600 text-xs px-1.5 py-0.5 rounded">💾保存</button>
+                        <button onClick={doCloudSave} className="bg-purple-600 hover:bg-purple-700 text-xs px-1.5 py-0.5 rounded">☁️</button>
+                        <button onClick={doCloudLoad} className="bg-blue-600 hover:bg-blue-700 text-xs px-1.5 py-0.5 rounded">📥</button>
                     </div>
                     <div className="flex gap-1">
                         <button onClick={shuffleWithinSize} className="bg-amber-500 hover:bg-amber-600 text-xs px-1.5 py-0.5 rounded">🎲</button>
