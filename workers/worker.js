@@ -1,5 +1,6 @@
 // Cloudflare Worker for R2 Cloud Storage
 // Handles save/load operations with passkey-based data identification
+// Secured with API key authentication
 
 export default {
     async fetch(request, env, ctx) {
@@ -9,12 +10,23 @@ export default {
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
         };
 
         // Handle CORS preflight
         if (request.method === 'OPTIONS') {
             return new Response(null, { headers: corsHeaders });
+        }
+
+        // API Key authentication
+        const apiKey = request.headers.get('X-API-Key');
+        const validApiKey = env.API_KEY; // Set this in Cloudflare Dashboard or wrangler.toml
+
+        if (!apiKey || apiKey !== validApiKey) {
+            return new Response(JSON.stringify({ error: 'Unauthorized: Invalid or missing API key' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
         }
 
         try {

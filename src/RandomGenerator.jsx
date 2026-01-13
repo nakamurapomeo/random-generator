@@ -44,6 +44,7 @@ const INIT_DATA = {
     resultImageSize: 40,     // Result display image size (px)
     cloudPasskey: '',        // Passkey for cloud sync
     cloudWorkerUrl: '',      // Cloudflare Worker URL for R2 storage
+    cloudApiKey: '',         // API key for Worker authentication
 };
 
 // Normalize sub-item to new format (migrate from string to object)
@@ -688,8 +689,8 @@ export default function RandomGenerator({ onSwitchApp }) {
 
     // Cloud Save - Save data and images to Cloudflare R2
     const doCloudSave = async () => {
-        if (!store.cloudPasskey || !store.cloudWorkerUrl) {
-            toast('パスキーとWorker URLを設定してください');
+        if (!store.cloudPasskey || !store.cloudWorkerUrl || !store.cloudApiKey) {
+            toast('パスキー・Worker URL・APIキーを設定してください');
             return;
         }
 
@@ -753,7 +754,10 @@ export default function RandomGenerator({ onSwitchApp }) {
             // Send to Cloudflare Worker
             const response = await fetch(`${store.cloudWorkerUrl}/api/save`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': store.cloudApiKey
+                },
                 body: JSON.stringify({
                     passkey: store.cloudPasskey,
                     data: backupData
@@ -776,14 +780,16 @@ export default function RandomGenerator({ onSwitchApp }) {
 
     // Cloud Load - Load data and images from Cloudflare R2
     const doCloudLoad = async () => {
-        if (!store.cloudPasskey || !store.cloudWorkerUrl) {
-            toast('パスキーとWorker URLを設定してください');
+        if (!store.cloudPasskey || !store.cloudWorkerUrl || !store.cloudApiKey) {
+            toast('パスキー・Worker URL・APIキーを設定してください');
             return;
         }
 
         setCloudSaving(true);
         try {
-            const response = await fetch(`${store.cloudWorkerUrl}/api/load?passkey=${encodeURIComponent(store.cloudPasskey)}`);
+            const response = await fetch(`${store.cloudWorkerUrl}/api/load?passkey=${encodeURIComponent(store.cloudPasskey)}`, {
+                headers: { 'X-API-Key': store.cloudApiKey }
+            });
             const result = await response.json();
 
             if (!result.success) {
@@ -1514,13 +1520,23 @@ export default function RandomGenerator({ onSwitchApp }) {
                                     placeholder="あなただけのパスキー"
                                     className={inputCls + ' text-sm'}
                                 />
-                                <p className="text-xs text-gray-500 mt-1">※ パスキーはブラウザに保存されます</p>
+                            </div>
+                            <div className="mb-3">
+                                <label className="block text-xs text-gray-500 mb-1">APIキー</label>
+                                <input
+                                    type="password"
+                                    value={store.cloudApiKey}
+                                    onChange={(e) => update(() => ({ cloudApiKey: e.target.value }))}
+                                    placeholder="Worker認証用APIキー"
+                                    className={inputCls + ' text-sm'}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">※ 設定はブラウザに保存されます</p>
                             </div>
                         </div>
                         <div className={cardCls + ' p-4'}>
                             <h3 className="font-semibold mb-3">データ</h3>
-                            <button onClick={doCloudSave} disabled={cloudSaving || !store.cloudPasskey || !store.cloudWorkerUrl} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls} ${(!store.cloudPasskey || !store.cloudWorkerUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}>☁️ クラウド保存 {cloudSaving && '...'}</button>
-                            <button onClick={doCloudLoad} disabled={cloudSaving || !store.cloudPasskey || !store.cloudWorkerUrl} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls} ${(!store.cloudPasskey || !store.cloudWorkerUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}>📥 クラウド読み込み {cloudSaving && '...'}</button>
+                            <button onClick={doCloudSave} disabled={cloudSaving || !store.cloudPasskey || !store.cloudWorkerUrl || !store.cloudApiKey} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls} ${(!store.cloudPasskey || !store.cloudWorkerUrl || !store.cloudApiKey) ? 'opacity-50 cursor-not-allowed' : ''}`}>☁️ クラウド保存 {cloudSaving && '...'}</button>
+                            <button onClick={doCloudLoad} disabled={cloudSaving || !store.cloudPasskey || !store.cloudWorkerUrl || !store.cloudApiKey} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls} ${(!store.cloudPasskey || !store.cloudWorkerUrl || !store.cloudApiKey) ? 'opacity-50 cursor-not-allowed' : ''}`}>📥 クラウド読み込み {cloudSaving && '...'}</button>
                             <hr className={`my-3 ${dark ? 'border-slate-600' : 'border-gray-200'}`} />
                             <button onClick={doExportJSON} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>💾 JSONバックアップ (画像なし)</button>
                             <button onClick={doExportZip} className={`w-full text-left p-2 rounded-lg mb-2 ${btnCls}`}>🗄️ Zipバックアップ (画像含む)</button>
