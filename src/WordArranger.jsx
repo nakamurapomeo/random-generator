@@ -238,7 +238,7 @@ export default function WordArranger({ onSwitchApp }) {
     const handleTouchEnd = () => {
         if (pullY > 80) {
             shuffleWithinSize();
-            showToast('♻️ ランダム配置しました');
+            // showToast('♻️ ランダム配置しました');
         }
         setPullY(0);
         isPullingRef.current = false;
@@ -246,7 +246,7 @@ export default function WordArranger({ onSwitchApp }) {
 
     return (
         <div
-            className="min-h-screen text-white p-1"
+            className="min-h-screen text-white p-1 relative"
             style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -255,7 +255,7 @@ export default function WordArranger({ onSwitchApp }) {
             {pullY > 0 && (
                 <div
                     style={{ height: pullY, opacity: pullY / 80 }}
-                    className="flex justify-center items-center bg-transparent text-gray-300 text-sm font-bold overflow-hidden transition-all duration-75"
+                    className="fixed top-0 left-0 right-0 z-50 flex justify-center items-center bg-black/30 backdrop-blur-sm text-white text-sm font-bold overflow-hidden transition-all duration-75 pointer-events-none"
                 >
                     <span className={`transform transition-transform ${pullY > 80 ? 'rotate-180' : ''}`}>⬇️</span>
                     <span className="ml-2">{pullY > 80 ? '放して更新' : '引っ張ってランダム配置'}</span>

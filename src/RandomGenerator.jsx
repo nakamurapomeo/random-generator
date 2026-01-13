@@ -1067,7 +1067,7 @@ export default function RandomGenerator({ onSwitchApp }) {
     const handlePullTouchEnd = () => {
         if (pullY > 80) {
             doGenerate();
-            toast('♻️ 生成しました');
+            // toast('♻️ 生成しました');
         }
         setPullY(0);
         isPullingRef.current = false;
@@ -1075,7 +1075,7 @@ export default function RandomGenerator({ onSwitchApp }) {
 
     return (
         <div
-            className={bg + ' p-4'}
+            className={bg + ' p-4 relative'}
             onTouchStart={handlePullTouchStart}
             onTouchMove={handlePullTouchMove}
             onTouchEnd={handlePullTouchEnd}
@@ -1083,7 +1083,7 @@ export default function RandomGenerator({ onSwitchApp }) {
             {pullY > 0 && (
                 <div
                     style={{ height: pullY, opacity: pullY / 80 }}
-                    className="flex justify-center items-center bg-transparent text-gray-500 dark:text-gray-300 text-sm font-bold overflow-hidden transition-all duration-75 mb-2"
+                    className="fixed top-0 left-0 right-0 z-50 flex justify-center items-center bg-black/30 backdrop-blur-sm text-white text-sm font-bold overflow-hidden transition-all duration-75 pointer-events-none"
                 >
                     <span className={`transform transition-transform ${pullY > 80 ? 'rotate-180' : ''}`}>⬇️</span>
                     <span className="ml-2">{pullY > 80 ? '放して生成' : '引っ張ってランダム生成'}</span>
