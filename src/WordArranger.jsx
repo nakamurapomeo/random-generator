@@ -98,8 +98,10 @@ export default function WordArranger({ onSwitchApp }) {
         const rect = e.currentTarget.getBoundingClientRect();
         const pr = previewRef.current.getBoundingClientRect();
         let x = rect.left - pr.left;
-        let y = rect.bottom - pr.top + 4;
-        if (x + 180 > pr.width) x = pr.width - 185;
+        // ダイアログを単語の上に表示（約180px分上にオフセット）
+        let y = rect.top - pr.top - 180;
+        if (y < 5) y = rect.bottom - pr.top + 4; // 上にスペースがない場合は下に
+        if (x + 200 > pr.width) x = pr.width - 205;
         if (x < 0) x = 5;
         setPopupPos({ x, y });
         setSelectedIdx(idx);
