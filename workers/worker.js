@@ -59,6 +59,38 @@ export default {
                 });
             }
 
+            // GET /api/check - Check update status (Head request)
+            if (url.pathname === '/api/check' && request.method === 'GET') {
+                const passkey = url.searchParams.get('passkey');
+
+                if (!passkey) {
+                    return new Response(JSON.stringify({ error: 'Passkey is required' }), {
+                        status: 400,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    });
+                }
+
+                const hashedKey = await hashPasskey(passkey);
+                const filename = `backup_${hashedKey}.json`;
+
+                // Use head() to get metadata without body
+                const object = await env.R2_BUCKET.head(filename);
+
+                if (!object) {
+                    return new Response(JSON.stringify({ found: false }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    });
+                }
+
+                return new Response(JSON.stringify({
+                    found: true,
+                    timestamp: object.uploaded.toISOString(),
+                    size: object.size
+                }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
+
             // GET /api/load - Load data from R2
             if (url.pathname === '/api/load' && request.method === 'GET') {
                 const passkey = url.searchParams.get('passkey');

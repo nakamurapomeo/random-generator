@@ -45,6 +45,7 @@ const INIT_DATA = {
     cloudPasskey: '',        // Passkey for cloud sync
     cloudWorkerUrl: '',      // Cloudflare Worker URL for R2 storage
     cloudApiKey: '',         // API key for Worker authentication
+    lastSynced: null,        // Last successful sync timestamp
 };
 
 // Normalize sub-item to new format (migrate from string to object)
@@ -159,6 +160,44 @@ export default function RandomGenerator({ onSwitchApp }) {
     const [imageCache, setImageCache] = useState({});
     const [zoomImage, setZoomImage] = useState(null); // { src, alt } for zoomed image modal
     const [cloudSaving, setCloudSaving] = useState(false); // Cloud save/load in progress
+    const [cloudStatus, setCloudStatus] = useState('unknown'); // latest, outdated, checking, error
+
+    // Check for cloud updates
+    const checkCloudUpdate = async () => {
+        if (!store.cloudWorkerUrl || !store.cloudPasskey || !store.cloudApiKey) return;
+        setCloudStatus('checking');
+        try {
+            const res = await fetch(`${store.cloudWorkerUrl}/api/check?passkey=${store.cloudPasskey}`, {
+                headers: { 'x-api-key': store.cloudApiKey }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.found && data.timestamp) {
+                    const cloudDate = new Date(data.timestamp);
+                    const localDate = store.lastSynced ? new Date(store.lastSynced) : new Date(0);
+                    // Add a small buffer (1s) to avoid false positives due to network delay
+                    if (cloudDate.getTime() > localDate.getTime() + 1000) {
+                        setCloudStatus('outdated');
+                    } else {
+                        setCloudStatus('latest');
+                    }
+                } else {
+                    setCloudStatus('unknown');
+                }
+            }
+        } catch (e) {
+            console.error('Cloud check failed:', e);
+            setCloudStatus('error');
+        }
+    };
+
+    // Check on mount and focus
+    useEffect(() => {
+        checkCloudUpdate();
+        const onFocus = () => checkCloudUpdate();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [store.cloudWorkerUrl, store.cloudPasskey, store.lastSynced]);
     const dragNode = useRef(null);
     const longPressTimer = useRef(null);
     const isLongPress = useRef(false);
@@ -694,6 +733,13 @@ export default function RandomGenerator({ onSwitchApp }) {
             return;
         }
 
+        // Conflict check
+        if (cloudStatus === 'outdated') {
+            if (!window.confirm('⚠️ クラウドに新しいデータがあります。\n上書きして保存しますか？')) {
+                return;
+            }
+        }
+
         setCloudSaving(true);
         try {
             // Collect all image IDs and data
@@ -766,6 +812,9 @@ export default function RandomGenerator({ onSwitchApp }) {
 
             const result = await response.json();
             if (result.success) {
+                const ts = result.timestamp || new Date().toISOString();
+                update({ lastSynced: ts });
+                setCloudStatus('latest');
                 toast(`☁️ クラウド保存完了 (画像${Object.keys(images).length}件)`);
             } else {
                 throw new Error(result.error || 'Save failed');
@@ -839,6 +888,16 @@ export default function RandomGenerator({ onSwitchApp }) {
             // Refresh image cache
             const allImages = await getAllImages();
             setImageCache(allImages);
+
+            // Update sync time
+            // Update sync time
+            if (result.timestamp) {
+                update({ lastSynced: result.timestamp });
+                setCloudStatus('latest');
+            } else {
+                update({ lastSynced: new Date().toISOString() });
+                setCloudStatus('latest');
+            }
 
             toast(`☁️ クラウドから復元完了 (画像${importedImages}件)`);
         } catch (err) {
@@ -1094,7 +1153,12 @@ export default function RandomGenerator({ onSwitchApp }) {
             <div className="max-w-lg mx-auto">
                 <div className="flex items-center justify-between mb-4">
                     <h1 onClick={onSwitchApp} className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition select-none">ランダムジェネレーター</h1>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                        {cloudStatus === 'outdated' && (
+                            <button onClick={doCloudLoad} className="animate-pulse text-xs bg-red-500 text-white px-2 py-1 rounded-full font-bold shadow-lg flex items-center gap-1">
+                                🔴 <span className="hidden sm:inline">更新あり</span>
+                            </button>
+                        )}
                         <button onClick={doCloudSave} className={btnCls} title="クラウドに保存">☁️</button>
                         <button onClick={doCloudLoad} className={btnCls} title="クラウドから復元">📥</button>
                         <button onClick={() => update(s => ({ dark: !s.dark }))} className={btnCls}>{dark ? '☀️' : '🌙'}</button>

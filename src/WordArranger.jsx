@@ -50,6 +50,48 @@ export default function WordArranger({ onSwitchApp }) {
     const fileInputRef = useRef(null);
     const previewRef = useRef(null);
 
+    // Smart Sync States
+    const [lastSynced, setLastSynced] = useState(() => localStorage.getItem('wa_lastSynced') || null);
+    const [cloudStatus, setCloudStatus] = useState('unknown'); // latest, outdated, checking
+
+    useEffect(() => {
+        if (lastSynced) localStorage.setItem('wa_lastSynced', lastSynced);
+    }, [lastSynced]);
+
+    const checkCloudUpdate = async () => {
+        const { url, key, apiKey } = getCloudConfig();
+        if (!url || !key || !apiKey) return;
+        setCloudStatus('checking');
+        try {
+            const res = await fetch(`${url}/api/check?passkey=${key}`, { headers: { 'x-api-key': apiKey } });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.found && data.timestamp) {
+                    const cloudDate = new Date(data.timestamp);
+                    const localDate = lastSynced ? new Date(lastSynced) : new Date(0);
+                    // Add buffer
+                    if (cloudDate.getTime() > localDate.getTime() + 1000) {
+                        setCloudStatus('outdated');
+                    } else {
+                        setCloudStatus('latest');
+                    }
+                } else {
+                    setCloudStatus('unknown');
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            setCloudStatus('error');
+        }
+    };
+
+    useEffect(() => {
+        checkCloudUpdate();
+        const onFocus = () => checkCloudUpdate();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [lastSynced]);
+
     useEffect(() => {
         try {
             const slots = localStorage.getItem('wordArrangerSlots2');
@@ -262,6 +304,13 @@ export default function WordArranger({ onSwitchApp }) {
         const { url, key, apiKey } = getCloudConfig();
         if (!url || !key || !apiKey) { showToast('RandomGeneratorでクラウド設定してください'); return; }
 
+        // Conflict check
+        if (cloudStatus === 'outdated') {
+            if (!window.confirm('⚠️ クラウドに新しいデータがあります。\n上書きして保存しますか？')) {
+                return;
+            }
+        }
+
         showToast('☁️ 保存中...');
         try {
             const res = await fetch(`${url}/api/load?passkey=${key}`, { headers: { 'x-api-key': apiKey } });
@@ -285,6 +334,12 @@ export default function WordArranger({ onSwitchApp }) {
                 body: JSON.stringify({ passkey: key, data: newData })
             });
             if (!saveRes.ok) throw new Error('Save failed');
+
+            const saveResult = await saveRes.json();
+            const ts = saveResult.timestamp || new Date().toISOString();
+            setLastSynced(ts);
+            setCloudStatus('latest');
+
             showToast('☁️ クラウドに保存しました');
         } catch (e) {
             console.error(e);
@@ -316,6 +371,17 @@ export default function WordArranger({ onSwitchApp }) {
                     if (d.packMode !== undefined) setPackMode(d.packMode);
                 }
                 if (wa.slots) setSavedSlots(wa.slots);
+                if (wa.slots) setSavedSlots(wa.slots);
+
+                // Update sync status
+                if (json.timestamp) {
+                    setLastSynced(json.timestamp);
+                    setCloudStatus('latest');
+                } else {
+                    setLastSynced(new Date().toISOString());
+                    setCloudStatus('latest');
+                }
+
                 showToast('☁️ 復元しました');
             } else {
                 console.log('No wordArranger data found in:', data);
@@ -384,6 +450,11 @@ export default function WordArranger({ onSwitchApp }) {
                             {savedSlots.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                         </select>
                         <button onClick={() => setShowSaveModal(true)} className="bg-indigo-500 hover:bg-indigo-600 text-xs px-1.5 py-0.5 rounded">💾保存</button>
+                        {cloudStatus === 'outdated' && (
+                            <button onClick={doCloudLoad} className="animate-pulse bg-red-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1 shadow-lg">
+                                🔴 更新アリ
+                            </button>
+                        )}
                         <button onClick={doCloudSave} className="bg-purple-600 hover:bg-purple-700 text-xs px-1.5 py-0.5 rounded">☁️</button>
                         <button onClick={doCloudLoad} className="bg-blue-600 hover:bg-blue-700 text-xs px-1.5 py-0.5 rounded">📥</button>
                     </div>
