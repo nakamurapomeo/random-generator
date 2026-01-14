@@ -298,9 +298,13 @@ export default function WordArranger({ onSwitchApp }) {
         showToast('📥 読込中...');
         try {
             const res = await fetch(`${url}/api/load/${key}`, { headers: { 'x-api-key': apiKey } });
-            if (!res.ok) throw new Error('Load failed');
+            if (!res.ok) throw new Error('Load failed: ' + res.status);
             const json = await res.json();
-            const data = json.data;
+            console.log('Cloud load response:', json);
+
+            // レスポンス構造に対応 (直接またはdata経由)
+            const data = json.data || json;
+
             if (data && data.wordArranger) {
                 const wa = data.wordArranger;
                 if (wa.data) {
@@ -314,10 +318,12 @@ export default function WordArranger({ onSwitchApp }) {
                 if (wa.slots) setSavedSlots(wa.slots);
                 showToast('☁️ 復元しました');
             } else {
-                showToast('データがありません');
+                console.log('No wordArranger data found in:', data);
+                showToast('WordArrangerデータなし');
             }
         } catch (e) {
-            showToast('読込失敗');
+            console.error('Cloud load error:', e);
+            showToast('読込失敗: ' + e.message);
         }
     };
 
