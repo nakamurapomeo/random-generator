@@ -264,7 +264,7 @@ export default function WordArranger({ onSwitchApp }) {
 
         showToast('☁️ 保存中...');
         try {
-            const res = await fetch(`${url}/api/load/${key}`, { headers: { 'x-api-key': apiKey } });
+            const res = await fetch(`${url}/api/load?passkey=${key}`, { headers: { 'x-api-key': apiKey } });
 
             let newData = {};
             if (res.ok) {
@@ -297,7 +297,7 @@ export default function WordArranger({ onSwitchApp }) {
         if (!url || !key || !apiKey) { showToast('クラウド設定なし'); return; }
         showToast('📥 読込中...');
         try {
-            const res = await fetch(`${url}/api/load/${key}`, { headers: { 'x-api-key': apiKey } });
+            const res = await fetch(`${url}/api/load?passkey=${key}`, { headers: { 'x-api-key': apiKey } });
             if (!res.ok) throw new Error('Load failed: ' + res.status);
             const json = await res.json();
             console.log('Cloud load response:', json);
