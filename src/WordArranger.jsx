@@ -236,7 +236,7 @@ export default function WordArranger({ onSwitchApp }) {
     };
 
     const handleTouchEnd = () => {
-        if (pullY > 80) {
+        if (pullY > 40) {
             shuffleWithinSize();
             // showToast('♻️ ランダム配置しました');
         }
@@ -329,11 +329,11 @@ export default function WordArranger({ onSwitchApp }) {
         >
             {pullY > 0 && (
                 <div
-                    style={{ height: pullY, opacity: pullY / 80 }}
+                    style={{ height: pullY, opacity: pullY / 40 }}
                     className="fixed top-0 left-0 right-0 z-50 flex justify-center items-center bg-black/30 backdrop-blur-sm text-white text-sm font-bold overflow-hidden transition-all duration-75 pointer-events-none"
                 >
-                    <span className={`transform transition-transform ${pullY > 80 ? 'rotate-180' : ''}`}>⬇️</span>
-                    <span className="ml-2">{pullY > 80 ? '放して更新' : '引っ張ってランダム配置'}</span>
+                    <span className={`transform transition-transform ${pullY > 40 ? 'rotate-180' : ''}`}>⬇️</span>
+                    <span className="ml-2">{pullY > 40 ? '放して更新' : '引っ張ってランダム配置'}</span>
                 </div>
             )}
 
@@ -411,18 +411,41 @@ export default function WordArranger({ onSwitchApp }) {
                                 setSelectedIdx(null);
                             }}></div>
 
-                            <div className="absolute bg-gray-900 rounded-lg p-2 shadow-xl border border-purple-400 z-20" style={{ left: popupPos.x + 'px', top: popupPos.y + 'px', minWidth: '170px' }} onClick={e => e.stopPropagation()}>
+                            <div className="absolute bg-gray-900 rounded-lg p-2 shadow-xl border border-purple-400 z-20" style={{ left: popupPos.x + 'px', top: popupPos.y + 'px', minWidth: '200px', maxWidth: '280px' }} onClick={e => e.stopPropagation()}>
                                 <button onClick={() => setSelectedIdx(null)} className="absolute top-1 right-1 text-gray-400 hover:text-white text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-gray-700">×</button>
-                                <div className="text-xs text-gray-400 mb-1 pr-5">「{words[selectedIdx].text}」</div>
-                                <div className="flex gap-1 mb-1">
-                                    <select value={words[selectedIdx].size} onChange={e => updateWord(selectedIdx, 'size', Number(e.target.value))} className="flex-1 text-xs rounded px-1 py-1 bg-gray-700">
-                                        {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}px</option>)}
-                                    </select>
-                                    <select value={words[selectedIdx].color || '#6B7280'} onChange={e => updateWord(selectedIdx, 'color', e.target.value)} className="text-xs rounded px-1 py-1" style={{ backgroundColor: words[selectedIdx].color || '#6B7280', color: getContrastColor(words[selectedIdx].color || '#6B7280') }}>
-                                        {COLOR_OPTIONS.map(o => <option key={o.value} value={o.value} style={{ backgroundColor: o.value, color: getContrastColor(o.value) }}>{o.label}</option>)}
-                                    </select>
+                                <div className="text-xs text-gray-400 mb-2 pr-5">「{words[selectedIdx].text}」</div>
+
+                                {/* サイズ選択ボタン */}
+                                <div className="mb-2">
+                                    <div className="text-[10px] text-gray-500 mb-1">サイズ</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {[8, 12, 16, 24, 32, 48, 64].map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={() => updateWord(selectedIdx, 'size', s)}
+                                                className={`px-2 py-0.5 rounded text-xs ${words[selectedIdx].size === s ? 'bg-purple-500 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                                            >{s}</button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="flex gap-1">
+
+                                {/* 色選択ボタン */}
+                                <div className="mb-2">
+                                    <div className="text-[10px] text-gray-500 mb-1">色</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {COLOR_OPTIONS.map(o => (
+                                            <button
+                                                key={o.value}
+                                                onClick={() => updateWord(selectedIdx, 'color', o.value)}
+                                                className={`w-6 h-6 rounded ${(words[selectedIdx].color || '#6B7280') === o.value ? 'ring-2 ring-yellow-400' : ''}`}
+                                                style={{ backgroundColor: o.value }}
+                                                title={o.label}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-1 pt-1 border-t border-gray-700">
                                     <button onClick={() => duplicateWord(selectedIdx)} className="flex-1 bg-blue-500 hover:bg-blue-600 px-1 py-0.5 rounded text-xs">📋</button>
                                     <button onClick={() => deleteWord(selectedIdx)} className="flex-1 bg-red-500 hover:bg-red-600 px-1 py-0.5 rounded text-xs">🗑</button>
                                 </div>
