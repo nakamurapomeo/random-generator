@@ -162,6 +162,8 @@ export default function RandomGenerator({ onSwitchApp }) {
     const [cloudSaving, setCloudSaving] = useState(false); // Cloud save/load in progress
     const [cloudStatus, setCloudStatus] = useState('unknown'); // latest, outdated, checking, error
 
+
+
     // Check for cloud updates
     const checkCloudUpdate = async () => {
         if (!store.cloudWorkerUrl || !store.cloudPasskey || !store.cloudApiKey) return;
@@ -361,7 +363,7 @@ export default function RandomGenerator({ onSwitchApp }) {
         }
     };
 
-    const update = (fn) => setStore(prev => ({ ...prev, ...fn(prev) }));
+    const update = (fn) => setStore(prev => ({ ...prev, ...(typeof fn === 'function' ? fn(prev) : fn) }));
 
     const visibleCats = store.showHidden ? store.cats : store.cats.filter(c => !c.hidden);
 

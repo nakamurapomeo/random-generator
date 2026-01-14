@@ -340,6 +340,16 @@ export default function WordArranger({ onSwitchApp }) {
             setLastSynced(ts);
             setCloudStatus('latest');
 
+            // Update RandomGenerator store as well
+            try {
+                const rgRaw = localStorage.getItem('randgen4');
+                if (rgRaw) {
+                    const rgData = JSON.parse(rgRaw);
+                    rgData.lastSynced = ts;
+                    localStorage.setItem('randgen4', JSON.stringify(rgData));
+                }
+            } catch (e) { console.error(e); }
+
             showToast('☁️ クラウドに保存しました');
         } catch (e) {
             console.error(e);
@@ -374,13 +384,20 @@ export default function WordArranger({ onSwitchApp }) {
                 if (wa.slots) setSavedSlots(wa.slots);
 
                 // Update sync status
-                if (json.timestamp) {
-                    setLastSynced(json.timestamp);
-                    setCloudStatus('latest');
-                } else {
-                    setLastSynced(new Date().toISOString());
-                    setCloudStatus('latest');
-                }
+                // Update sync status
+                const ts = json.timestamp || new Date().toISOString();
+                setLastSynced(ts);
+                setCloudStatus('latest');
+
+                // Update RandomGenerator store as well
+                try {
+                    const rgRaw = localStorage.getItem('randgen4');
+                    if (rgRaw) {
+                        const rgData = JSON.parse(rgRaw);
+                        rgData.lastSynced = ts;
+                        localStorage.setItem('randgen4', JSON.stringify(rgData));
+                    }
+                } catch (e) { console.error(e); }
 
                 showToast('☁️ 復元しました');
             } else {
